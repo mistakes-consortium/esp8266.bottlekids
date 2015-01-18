@@ -1,13 +1,19 @@
+#include "mem.h"
+#include "c_types.h"
 #include "ets_sys.h"
+// #include "driver/uart.h"
 #include "osapi.h"
 #include "gpio.h"
 #include "os_type.h"
 #include "user_config.h"
 #include "user_interface.h"
 
+
 #define user_procTaskPrio        0
 #define user_procTaskQueueLen    1
 os_event_t    user_procTaskQueue[user_procTaskQueueLen];
+
+static volatile os_timer_t dht_timer;
 static void loop(os_event_t *events);
 
 static void ICACHE_FLASH_ATTR
@@ -39,9 +45,23 @@ void wifi_init(void){
     wifi_station_set_auto_connect(1);
 }
 
+
+static void ICACHE_FLASH_ATTR
+read_sensor(void *arg) {
+    uart0_sendStr("Reading\r\n");
+}
 //init
 void ICACHE_FLASH_ATTR
 user_init()
 {
     wifi_init();
+    
+    os_timer_disarm(&dht_timer);
+
+    //Setup timer
+    os_timer_setfn(&dht_timer, (os_timer_func_t *)read_sensor, NULL);
+
+    // arm timer, 10s
+    os_timer_arm(&dht_timer, 10000, 1);
+
 }

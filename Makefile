@@ -3,9 +3,12 @@ FW_FILE_1:=0x00000.bin
 FW_FILE_2:=0x40000.bin
 
 TARGET_OUT:=image.elf
-OBJS:=user/user_main.o
+OBJS:=driver/uart.o\
+	user/user_main.o
 
-SRCS:=user/user_main.c 
+SRCS:=driver/uart.c \
+	user/user_main.c \
+	
 
 GCC_FOLDER:=/opt/Espressif/crosstool-NG/builds/xtensa-lx106-elf
 ESPTOOL_PY:=/opt/Espressif/esptool-py/esptool.py
@@ -21,7 +24,7 @@ FOLDERPREFIX:=$(GCC_FOLDER)/bin
 PREFIX:=$(FOLDERPREFIX)/xtensa-lx106-elf-
 CC:=$(PREFIX)gcc
 
-CFLAGS:=-mlongcalls -I$(SDK)/include -Imyclib -Iinclude -Iuser -Os -I$(SDK)/include/ -I /opt/Espressif/ESP8266_SDK/include
+CFLAGS:=-mlongcalls -I$(SDK)/include -Imyclib -Iinclude -Idriver -Iuser -Os -I$(SDK)/include/ -I /opt/Espressif/ESP8266_SDK/include
 
 #	   \
 #
