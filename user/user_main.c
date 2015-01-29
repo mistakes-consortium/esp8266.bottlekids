@@ -9,7 +9,7 @@
 #include "os_type.h"
 #include "user_config.h"
 #include "osapi.h"
-
+#include "espconn.h"
 
 #define user_procTaskPrio        0
 #define user_procTaskQueueLen    1
@@ -27,6 +27,11 @@ os_event_t    user_procTaskQueue[user_procTaskQueueLen];
 static volatile os_timer_t dht_timer;
 static void loop(os_event_t *events);
 
+uint8 station_status = STATION_IDLE;
+bool udp_setup = false;
+struct espconn udp_conn;
+esp_udp net_udp;
+
 static void ICACHE_FLASH_ATTR
 loop(os_event_t *events)
 {
@@ -43,7 +48,7 @@ void ICACHE_FLASH_ATTR at_recvTask()
 void wifi_status_show(void){
 	struct ip_info ip;
 	uint8 mac[6];
-	if (wifi_get_macaddr(0, &(mac[0]))) {
+	if (wifi_get_macaddr(STATION_IF, &(mac[0]))) {
 		char mac_str[25];
 		os_sprintf((char*)(&(mac_str[0])), "mac: %x:%x:%x:%x:%x:%x\r\n", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 		
@@ -52,9 +57,9 @@ void wifi_status_show(void){
 		uart0_sendStr("No mac addr available...\r\n");
 	}
 
-	uint8 cstatus = wifi_station_get_connect_status();
+	station_status = wifi_station_get_connect_status();
 
-	switch(cstatus){
+	switch(station_status){
 		case STATION_IDLE:
 			uart0_sendStr("Connection: IDLE\r\n");
 			break;
@@ -72,7 +77,7 @@ void wifi_status_show(void){
 			break;
 		case STATION_GOT_IP:
 			uart0_sendStr("Connection: GOT_IP\r\n");
-			if (wifi_get_ip_info(0, &ip)) {
+			if (wifi_get_ip_info(STATION_IF, &ip)) {
 				char ip_str[22];
 				os_sprintf((char*)(&(ip_str[0])), "ip: %d.%d.%d.%d\r\n", IP2STR(&(ip.ip)));
 				uart0_sendStr(&(ip_str[0]));
@@ -80,6 +85,11 @@ void wifi_status_show(void){
 				uart0_sendStr("No ip info available...\r\n");
 			}
 			break;
+	}
+
+	// set the udp setup flag to false, so we set it up next time we have a good station status
+	if (station_status != STATION_GOT_IP) {
+		udp_setup = false;
 	}
 
 }
@@ -103,15 +113,73 @@ void wifi_init(void){
     // set config
     wifi_station_set_config(&stconf);
     wifi_station_set_auto_connect(1);
-
-	wifi_status_show();
 }
 
+void udp_connect_maybe() {
+	if (udp_setup)
+		return;
+	
+	char temp[23];
+	unsigned long ip = 0;
+	udp_conn.type = ESPCONN_UDP;
+	udp_conn.state = ESPCONN_NONE;
+	udp_conn.proto.udp = &net_udp;
+	udp_conn.proto.udp->local_port = espconn_port();
+	uart0_sendStr("UDP Source :");
+	os_sprintf(temp, "%d", udp_conn.proto.udp->local_port);
+	uart0_sendStr(temp);
+	udp_conn.proto.udp->remote_port = SERVER_PORT;
+	ip = ipaddr_addr(SERVER_IP);
+	uart0_sendStr(" Target: ");
+	uart0_sendStr(SERVER_IP);
+	os_sprintf(temp, ":%d\r\n", SERVER_PORT);
+	uart0_sendStr(temp);
+	os_memcpy(udp_conn.proto.udp->remote_ip, &ip, 4);
+	if (espconn_create(&udp_conn) == ESPCONN_OK) {
+		udp_setup = true;
+	} else {
+		uart0_sendStr("Failed to create UDP connection...\r\n");
+	}
+}
+
+// fixme support > 15 size
+void write_list(size_t *ou, char* obuf, uint8 lsize) {
+	obuf[(*ou)++] = 0b10010000 + lsize;
+}
+
+void write_nil(size_t *ou, char* obuf) {
+	obuf[(*ou)++] = 0xc0;
+}
 
 static void ICACHE_FLASH_ATTR
-read_sensor(void *arg) {
-    uart0_sendStr("skipping sensor read.\r\n");
+poll_loop(void *arg) {
 	wifi_status_show();
+	
+	if (station_status == STATION_GOT_IP) {
+		udp_connect_maybe();
+	}
+
+	if (udp_setup) {
+		size_t ou = 0;
+		char obuf[128];
+
+		write_list(&ou, obuf, 4);
+		write_nil(&ou, obuf);
+		write_nil(&ou, obuf);
+		write_nil(&ou, obuf);
+		write_nil(&ou, obuf);
+	
+		char ret = espconn_sent(&udp_conn, obuf, ou);
+		if (ret != ESPCONN_OK){
+			uart0_sendStr("Error Sending UDP Packet...\r\n");
+		} else {
+			uart0_sendStr("Sent packet...\r\n");
+		}
+	}
+
+	
+
+	// for now...
 	return;
 
 	
@@ -242,7 +310,7 @@ user_init()
     os_timer_disarm(&dht_timer);
 
     //Setup timer
-    os_timer_setfn(&dht_timer, (os_timer_func_t *)read_sensor, NULL);
+    os_timer_setfn(&dht_timer, (os_timer_func_t *)poll_loop, NULL);
 
     // arm timer, 5s
     os_timer_arm(&dht_timer, 5 * TICKHZ, 1);
