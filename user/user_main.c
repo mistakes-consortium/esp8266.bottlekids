@@ -1,13 +1,14 @@
 #include "mem.h"
 #include "c_types.h"
 #include "user_interface.h"
+#include "ip_addr.h"
 #include "ets_sys.h"
 #include "uart.h"
 #include "osapi.h"
 #include "gpio.h"
 #include "os_type.h"
 #include "user_config.h"
-
+#include "osapi.h"
 
 
 #define user_procTaskPrio        0
@@ -21,13 +22,15 @@ os_event_t    user_procTaskQueue[user_procTaskQueueLen];
 #define DHT_PULSES 10000
 #define DHT_WAIT 20
 
+#define TICKHZ 400
+
 static volatile os_timer_t dht_timer;
 static void loop(os_event_t *events);
 
 static void ICACHE_FLASH_ATTR
 loop(os_event_t *events)
 {
-    os_printf("Hello\n\r");
+    //os_printf("Hello\n\r");
     os_delay_us(10000);
     system_os_post(user_procTaskPrio, 0, 0 );
 }
@@ -35,6 +38,50 @@ loop(os_event_t *events)
 void ICACHE_FLASH_ATTR at_recvTask()
 {
         //Called from UART.
+}
+
+void wifi_status_show(void){
+	struct ip_info ip;
+	uint8 mac[6];
+	if (wifi_get_macaddr(0, &(mac[0]))) {
+		char mac_str[25];
+		os_sprintf((char*)(&(mac_str[0])), "mac: %x:%x:%x:%x:%x:%x\r\n", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+		
+		uart0_sendStr(&(mac_str[0]));
+	} else {
+		uart0_sendStr("No mac addr available...\r\n");
+	}
+
+	uint8 cstatus = wifi_station_get_connect_status();
+
+	switch(cstatus){
+		case STATION_IDLE:
+			uart0_sendStr("Connection: IDLE\r\n");
+			break;
+		case STATION_CONNECTING:
+			uart0_sendStr("Connection: CONNECTING\r\n");
+			break;
+		case STATION_WRONG_PASSWORD:
+			uart0_sendStr("Connection: WRONG_PASSWORD\r\n");
+			break;
+		case STATION_NO_AP_FOUND:
+			uart0_sendStr("Connection: NO_AP_FOUND\r\n");
+			break;
+		case STATION_CONNECT_FAIL:
+			uart0_sendStr("Connection: CONNECT_FAIL\r\n");
+			break;
+		case STATION_GOT_IP:
+			uart0_sendStr("Connection: GOT_IP\r\n");
+			if (wifi_get_ip_info(0, &ip)) {
+				char ip_str[22];
+				os_sprintf((char*)(&(ip_str[0])), "ip: %d.%d.%d.%d\r\n", IP2STR(&(ip.ip)));
+				uart0_sendStr(&(ip_str[0]));
+			} else {
+				uart0_sendStr("No ip info available...\r\n");
+			}
+			break;
+	}
+
 }
 
 void wifi_init(void){
@@ -56,12 +103,19 @@ void wifi_init(void){
     // set config
     wifi_station_set_config(&stconf);
     wifi_station_set_auto_connect(1);
+
+	wifi_status_show();
 }
 
 
 static void ICACHE_FLASH_ATTR
 read_sensor(void *arg) {
-    uart0_sendStr("Reading\r\n");
+    uart0_sendStr("skipping sensor read.\r\n");
+	wifi_status_show();
+	return;
+
+	
+	uart0_sendStr("Reading\r\n");
     
     /// setup some vars
     // wait counter
@@ -190,8 +244,8 @@ user_init()
     //Setup timer
     os_timer_setfn(&dht_timer, (os_timer_func_t *)read_sensor, NULL);
 
-    // arm timer, 10s
-    os_timer_arm(&dht_timer, 40000, 1);
+    // arm timer, 5s
+    os_timer_arm(&dht_timer, 5 * TICKHZ, 1);
     uart0_sendStr("\r\nTimer Rocking Out, should get data soon :)\r\n");
 
 }
