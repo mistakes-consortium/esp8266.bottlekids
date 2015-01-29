@@ -35,7 +35,6 @@ esp_udp net_udp;
 static void ICACHE_FLASH_ATTR
 loop(os_event_t *events)
 {
-    //os_printf("Hello\n\r");
     os_delay_us(10000);
     system_os_post(user_procTaskPrio, 0, 0 );
 }
@@ -95,7 +94,7 @@ void wifi_status_show(void){
 }
 
 void wifi_init(void){
-    char ssid[32] = WIFI_USER;
+    char ssid[32] = WIFI_SSID;
     char password[64] = WIFI_PASS;
     
     struct station_config stconf;
@@ -128,11 +127,11 @@ void udp_connect_maybe() {
 	uart0_sendStr("UDP Source :");
 	os_sprintf(temp, "%d", udp_conn.proto.udp->local_port);
 	uart0_sendStr(temp);
-	udp_conn.proto.udp->remote_port = SERVER_PORT;
-	ip = ipaddr_addr(SERVER_IP);
+	udp_conn.proto.udp->remote_port = TBB_PORT;
+	ip = ipaddr_addr(TBB_IP);
 	uart0_sendStr(" Target: ");
-	uart0_sendStr(SERVER_IP);
-	os_sprintf(temp, ":%d\r\n", SERVER_PORT);
+	uart0_sendStr(TBB_IP);
+	os_sprintf(temp, ":%d\r\n", TBB_PORT);
 	uart0_sendStr(temp);
 	os_memcpy(udp_conn.proto.udp->remote_ip, &ip, 4);
 	if (espconn_create(&udp_conn) == ESPCONN_OK) {
@@ -151,6 +150,19 @@ void write_nil(size_t *ou, char* obuf) {
 	obuf[(*ou)++] = 0xc0;
 }
 
+//fixme support > 255 sizes, this won't work
+void write_string(size_t *ou, char* obuf, char* str) {
+	size_t sl = os_strlen(str);
+	if (sl < 32) {
+		obuf[(*ou)++] = 0b10100000 + (uint8)sl;
+	} else {
+		obuf[(*ou)++] = 0xd9;
+		obuf[(*ou)++] = (uint8)sl;
+	}
+	os_memcpy(obuf + *ou, str, sl);
+	(*ou) += sl;
+}
+
 static void ICACHE_FLASH_ATTR
 poll_loop(void *arg) {
 	wifi_status_show();
@@ -163,11 +175,12 @@ poll_loop(void *arg) {
 		size_t ou = 0;
 		char obuf[128];
 
+		// these are some really minimally implemented msgpack writer functions. They are not complete or bug free. careful. Read the msgpack spec.
 		write_list(&ou, obuf, 4);
-		write_nil(&ou, obuf);
-		write_nil(&ou, obuf);
-		write_nil(&ou, obuf);
-		write_nil(&ou, obuf);
+		write_string(&ou, obuf, TBB_NAMESPACE);
+		write_nil(&ou, obuf); // options are nil or floating point unix epoch - we don't have an RTC or NTP
+		write_string(&ou, obuf, "Hello world from ESP8266 integrated thingsbus adaptor.");
+		write_string(&ou, obuf, "https://github.com/eastein/esp8266.dht22");
 	
 		char ret = espconn_sent(&udp_conn, obuf, ou);
 		if (ret != ESPCONN_OK){
