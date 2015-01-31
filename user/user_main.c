@@ -142,8 +142,15 @@ void udp_connect_maybe() {
 }
 
 // fixme support > 15 size
+// this only starts the list. You are expected to write the elements of the list and do the right number of elements.
 void write_list(size_t *ou, char* obuf, uint8 lsize) {
 	obuf[(*ou)++] = 0b10010000 + lsize;
+}
+
+// fixme support > 15 size
+// this only starts the map. You are expected to write the (k,v), (k,v) pairs and do the right number of them.
+void write_map(size_t *ou, char* obuf, uint8 msize) {
+	obuf[(*ou)++] = 0b10000000 + msize;
 }
 
 void write_nil(size_t *ou, char* obuf) {
@@ -163,6 +170,25 @@ void write_string(size_t *ou, char* obuf, char* str) {
 	(*ou) += sl;
 }
 
+void write_float(size_t *ou, char* obuf, float num) {
+	const size_t sl = sizeof(num);
+	if (sl == 4) {
+		obuf[(*ou)++] = 0xca;
+	} else if (sl == 8) {
+		obuf[(*ou)++] = 0xcb;
+	}
+	// msgpack is big endian, this CPU is little endian.. fun times.
+	size_t i;
+	for (i = 0; i < sl; i++) {
+		obuf[(*ou)++] = ((char*)(&num))[sl - 1 - i];
+	}
+}
+
+/*
+void write_int(size_t *ou, char* obuf,  num) {
+	
+} */
+
 static void ICACHE_FLASH_ATTR
 poll_loop(void *arg) {
 	wifi_status_show();
@@ -173,13 +199,26 @@ poll_loop(void *arg) {
 
 	if (udp_setup) {
 		size_t ou = 0;
-		char obuf[128];
+		// careful not to overflow this, you absolutely can if you put in too much data :)
+		char obuf[1024];
 
 		// these are some really minimally implemented msgpack writer functions. They are not complete or bug free. careful. Read the msgpack spec.
 		write_list(&ou, obuf, 4);
 		write_string(&ou, obuf, TBB_NAMESPACE);
 		write_nil(&ou, obuf); // options are nil or floating point unix epoch - we don't have an RTC or NTP
+		
+		// send data
+		write_map(&ou, obuf, 3);
+		write_string(&ou, obuf, "helloworld");
 		write_string(&ou, obuf, "Hello world from ESP8266 integrated thingsbus adaptor.");
+		write_string(&ou, obuf, "testfloat");
+		write_float(&ou, obuf, 1337.666);
+		
+		// meta data
+		write_string(&ou, obuf, "metadata");
+		write_map(&ou, obuf, 0);
+
+		// send documentation url
 		write_string(&ou, obuf, "https://github.com/eastein/esp8266.dht22");
 	
 		char ret = espconn_sent(&udp_conn, obuf, ou);
