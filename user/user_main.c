@@ -24,13 +24,21 @@ os_event_t    user_procTaskQueue[user_procTaskQueueLen];
 
 #define TICKHZ 400
 
-static volatile os_timer_t dht_timer;
+static volatile os_timer_t loop_timer;
 static void loop(os_event_t *events);
 
+// wifi state
 uint8 station_status = STATION_IDLE;
+
+// udp connection state
 bool udp_setup = false;
 struct espconn udp_conn;
 esp_udp net_udp;
+
+// metadata
+uint32 loops;
+uint32 messages_sent;
+uint32 messages_dropped;
 
 static void ICACHE_FLASH_ATTR
 loop(os_event_t *events)
@@ -170,6 +178,7 @@ void write_string(size_t *ou, char* obuf, char* str) {
 	(*ou) += sl;
 }
 
+
 void write_float(size_t *ou, char* obuf, float num) {
 	const size_t sl = sizeof(num);
 	if (sl == 4) {
@@ -184,10 +193,15 @@ void write_float(size_t *ou, char* obuf, float num) {
 	}
 }
 
-/*
-void write_int(size_t *ou, char* obuf,  num) {
-	
-} */
+void write_int(size_t *ou, char* obuf, uint32 num) {
+	const size_t sl = sizeof(num);
+	obuf[(*ou)++] = 0xce;
+	size_t i;
+	for (i = 0; i < sl; i++) {
+		obuf[(*ou)++] = ((char*)(&num))[sl - 1 - i];
+	}
+}
+
 
 static void ICACHE_FLASH_ATTR
 poll_loop(void *arg) {
@@ -197,7 +211,11 @@ poll_loop(void *arg) {
 		udp_connect_maybe();
 	}
 
+	loops++;
+
 	if (udp_setup) {
+		messages_sent++;
+		
 		size_t ou = 0;
 		// careful not to overflow this, you absolutely can if you put in too much data :)
 		char obuf[1024];
@@ -216,17 +234,28 @@ poll_loop(void *arg) {
 		
 		// meta data
 		write_string(&ou, obuf, "metadata");
-		write_map(&ou, obuf, 0);
+		write_map(&ou, obuf, 3);
+		write_string(&ou, obuf, "loops");
+		write_int(&ou, obuf, loops);
+		write_string(&ou, obuf, "msgs_sent");
+		write_int(&ou, obuf, messages_sent);
+		write_string(&ou, obuf, "msgs_dropped");
+		write_int(&ou, obuf, messages_dropped);
 
 		// send documentation url
 		write_string(&ou, obuf, "https://github.com/eastein/esp8266.dht22");
 	
+
 		char ret = espconn_sent(&udp_conn, obuf, ou);
 		if (ret != ESPCONN_OK){
 			uart0_sendStr("Error Sending UDP Packet...\r\n");
+			messages_dropped++;
+			messages_sent--; // here we decrement the messages sent number, because we assumed success before sending
 		} else {
 			uart0_sendStr("Sent packet...\r\n");
 		}
+	} else {
+		messages_dropped++;
 	}
 
 	
@@ -359,13 +388,18 @@ user_init()
     
     uart0_sendStr("\r\nWifi Initialized\r\n");
     
-    os_timer_disarm(&dht_timer);
+    os_timer_disarm(&loop_timer);
+
+	// metadata init
+	loops = 0;
+	messages_sent = 0;
+	messages_dropped = 0;
 
     //Setup timer
-    os_timer_setfn(&dht_timer, (os_timer_func_t *)poll_loop, NULL);
-
+    os_timer_setfn(&loop_timer, (os_timer_func_t *)poll_loop, NULL);
     // arm timer, 5s
-    os_timer_arm(&dht_timer, 5 * TICKHZ, 1);
+    os_timer_arm(&loop_timer, 5 * TICKHZ, 1);
+
     uart0_sendStr("\r\nTimer Rocking Out, should get data soon :)\r\n");
 
 }
