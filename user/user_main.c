@@ -69,7 +69,7 @@ read_sensor(void *arg) {
     // pulse counter
     int pc = 0;
     // data storage
-    int return_data[DHT_PULSES];
+    int return_data[100];
     return_data[0] = return_data[1] = return_data[2] = return_data[3] = return_data[4] = 0;
     int j_storage = 0;
     // prevstate && a counter
@@ -77,8 +77,8 @@ read_sensor(void *arg) {
     int counter = 0;
     
     // results
-    float res_temp = 0.0;
-    float res_hum = 0.0;
+    float res_temp;
+    float res_hum;
     int checksum = 0;
     
     
@@ -92,9 +92,10 @@ read_sensor(void *arg) {
     GPIO_OUTPUT_SET(DHT_READ_PIN,0);
     // os_delay_us(20);
     os_delay_us(20000);
+    GPIO_OUTPUT_SET(DHT_READ_PIN,1);
     // time to read
-    GPIO_DIS_OUTPUT(2);
     os_delay_us(40);
+    GPIO_DIS_OUTPUT(2);
     PIN_PULLUP_EN(DHT_GPIO_SETUP);
     
     
