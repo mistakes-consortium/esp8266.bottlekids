@@ -24,6 +24,15 @@ os_event_t    user_procTaskQueue[user_procTaskQueueLen];
 
 #define TICKHZ 400
 
+struct env_reading {
+	bool ok;
+	char err_msg[64];
+	float temp;
+	float hum;
+};
+struct env_reading read_dht22();
+
+
 static volatile os_timer_t loop_timer;
 static void loop(os_event_t *events);
 
@@ -225,13 +234,29 @@ poll_loop(void *arg) {
 		write_string(&ou, obuf, TBB_NAMESPACE);
 		write_nil(&ou, obuf); // options are nil or floating point unix epoch - we don't have an RTC or NTP
 		
+		uint8 num_fields = 1;
+
+		struct env_reading reading;
+		reading = read_dht22();
+
+		if (reading.ok) {
+			num_fields += 2;
+		} else {
+			num_fields += 1;
+		}
 		// send data
-		write_map(&ou, obuf, 3);
-		write_string(&ou, obuf, "helloworld");
-		write_string(&ou, obuf, "Hello world from ESP8266 integrated thingsbus adaptor.");
-		write_string(&ou, obuf, "testfloat");
-		write_float(&ou, obuf, 1337.666);
+		write_map(&ou, obuf, num_fields);
 		
+		if (reading.ok) {
+			write_string(&ou, obuf, "temp");
+			write_float(&ou, obuf, reading.temp);
+			write_string(&ou, obuf, "hum");
+			write_float(&ou, obuf, reading.hum);
+		} else {
+			write_string(&ou, obuf, "dht22_error");
+			write_string(&ou, obuf, reading.err_msg);
+		}
+
 		// meta data
 		write_string(&ou, obuf, "metadata");
 		write_map(&ou, obuf, 3);
@@ -257,13 +282,9 @@ poll_loop(void *arg) {
 	} else {
 		messages_dropped++;
 	}
+}
 
-	
-
-	// for now...
-	return;
-
-	
+struct env_reading read_dht22() {
 	uart0_sendStr("Reading\r\n");
     
     /// setup some vars
@@ -272,7 +293,7 @@ poll_loop(void *arg) {
     // pulse counter
     int pc = 0;
     // data storage
-    int return_data[100];
+    uint8 return_data[100];
     return_data[0] = return_data[1] = return_data[2] = return_data[3] = return_data[4] = 0;
     int j_storage = 0;
     // prevstate && a counter
@@ -280,11 +301,14 @@ poll_loop(void *arg) {
     int counter = 0;
     
     // results
-    float res_temp;
-    float res_hum;
-    int checksum = 0;
+    struct env_reading reading;
+	reading.ok = false;
+	// avoid nasty uninit string stuff
+	reading.err_msg[0] = 0;
+
+    uint8 checksum = 0;
     
-    
+    //uart0_sendStr
     PIN_FUNC_SELECT(DHT_GPIO_SETUP, DHT_GPIO_FUNC);
     PIN_PULLUP_EN(DHT_GPIO_SETUP);
     // high
@@ -304,7 +328,7 @@ poll_loop(void *arg) {
     
     // time to rest, until the DHT drops the pin
     
-    while (GPIO_INPUT_GET(2) == 1 && i_wait<DHT_WAIT_PERIOD) {
+    while ((GPIO_INPUT_GET(2) == 1) && (i_wait<DHT_WAIT_PERIOD)) {
           os_delay_us(1);
           i_wait++;
     }
@@ -323,11 +347,17 @@ poll_loop(void *arg) {
             os_delay_us(1);
             
             // this happens because we've reached the end and there is no fresh data coming in?
-            if (counter == 1000){break;}
+            if (counter == 1000){
+				uart0_sendStr("giving up inside main read loop for DHT22.\r\n");
+				break;
+			}
         }
         // same here
         prevstate = GPIO_INPUT_GET(DHT_READ_PIN);
-        if (counter == 1000) {break;}
+        if (counter == 1000) {
+			uart0_sendStr("giving up inside external check for DHT22.\r\n");
+			break;
+		}
         
         
         // so we shove it in to the array, every other bit recieved is low so we don't store it
@@ -338,30 +368,38 @@ poll_loop(void *arg) {
                 return_data[j_storage/8] |= 1;
             j_storage++;
     }
+	
+	char data_str[26];
+	os_sprintf((char*)(&(data_str[0])), "read bits: %d\r\n", j_storage);
+	uart0_sendStr(&(data_str[0]));
     
     // do calcs!?
     
     if (j_storage > 39) {
-        checksum =  (return_data[0] + return_data[1] + return_data[2] + return_data[3]) & 0xFF;
+		char data_str[128];
+		os_sprintf((char*)(&(data_str[0])), "DHT22 data: %x:%x:%x:%x:%x\r\n", return_data[0], return_data[1], return_data[2], return_data[3], return_data[4]);
+		uart0_sendStr(&(data_str[0]));
+		
+		checksum =  (return_data[0] + return_data[1] + return_data[2] + return_data[3]) & 0xFF;
         if (return_data[4] == checksum){
             // do  the calcs for humidity
-            res_hum = return_data[0] * 256 + return_data[1];
-            res_hum /= 10.0;
+            reading.hum = return_data[0] * 256 + return_data[1];
+            reading.hum /= 10.0;
             
             // do the calcs for temp
-            res_temp = (return_data[2] & 0x7F)* 256 + return_data[3];
-            res_temp /= 10.0;
+            reading.temp = (return_data[2] & 0x7F)* 256 + return_data[3];
+            reading.temp /= 10.0;
             
             // do calcs for negative temp
             if (return_data[2] & 0x80)
-                res_temp *= -1;
+                reading.temp *= -1;
             
-            const char *ret_temp = "Temp: %f \r\n", res_temp;
-            const char *ret_hum = "Hum: %f \r\n", res_hum; 
-            uart0_sendStr(ret_temp);
-            uart0_sendStr(ret_hum);
+			reading.ok = true;
+            os_sprintf((char*)(&(data_str[0])), "Temp: %f Hum: %f \r\n", reading.temp, reading.hum);
+			uart0_sendStr(&(data_str[0]));
         }
         else {
+			os_sprintf((char*)(&(reading.err_msg[0])), "bad checksum, %s", data_str);
             uart0_sendStr("Bad Checksum\r\n");
             
 //             const char *cs = "checksum: %i \r\n", checksum;
@@ -372,14 +410,11 @@ poll_loop(void *arg) {
 //             uart0_sendStr(ret4);
 //             uart0_sendStr(ret_a);
         }
-        
-    }
-    
+    }   
 
-    
-    
-    
+	return reading;
 }
+
 //init
 void ICACHE_FLASH_ATTR
 user_init()
