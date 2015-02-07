@@ -1,4 +1,5 @@
-all : image.elf
+all : clean image.elf
+
 FW_FILE_1:=0x00000.bin
 FW_FILE_2:=0x40000.bin
 
@@ -9,6 +10,7 @@ OBJS:=driver/uart.o\
 SRCS:=driver/uart.c \
 	user/user_main.c \
 	
+FTDI:=/dev/ttyUSB0
 
 GCC_FOLDER:=/opt/Espressif/crosstool-NG/builds/xtensa-lx106-elf
 ESPTOOL_PY:=/opt/Espressif/esptool-py/esptool.py
@@ -68,7 +70,7 @@ $(FW_FILE_2): $(TARGET_OUT)
 	$(FW_TOOL) -eo $(TARGET_OUT) -es .irom0.text $@ -ec
 
 burn : $(FW_FILE_1) $(FW_FILE_2)
-	($(ESPTOOL_PY) --port /dev/ttyAMA0 write_flash 0x00000 0x00000.bin 0x40000 0x40000.bin)||(true)
+	($(ESPTOOL_PY) --port $(FTDI) write_flash 0x00000 0x00000.bin 0x40000 0x40000.bin)||(true)
 
 
 clean :
