@@ -7,9 +7,12 @@
 #include "osapi.h"
 #include "gpio.h"
 #include "os_type.h"
-#include "user_config.h"
 #include "osapi.h"
 #include "espconn.h"
+
+#include "user_config.h"
+
+#include "lwip-stub.h"
 
 #define user_procTaskPrio        0
 #define user_procTaskQueueLen    1
@@ -117,6 +120,7 @@ void wifi_status_show(void){
 	}
 
 }
+
 
 void wifi_init(void){
     char ssid[32] = WIFI_SSID;
