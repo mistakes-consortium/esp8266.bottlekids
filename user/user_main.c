@@ -100,6 +100,14 @@ void wifi_status_show(void){
 			} else {
 				uart0_sendStr("No ip info available...\r\n");
 			}
+
+			ip_addr_t ipa;
+			ipa = dns_getserver(0);
+
+			char ip_str[23];
+			os_sprintf((char*)(&(ip_str[0])), "dns: %d.%d.%d.%d\r\n", IP2STR(&(ipa)));
+			uart0_sendStr(&(ip_str[0]));
+
 			break;
 	}
 
