@@ -13,6 +13,8 @@
 #include "user_config.h"
 
 #include "lwip-stub.h"
+#include "dns.h"
+#include "debugging.h"
 
 #define user_procTaskPrio        0
 #define user_procTaskQueueLen    1
@@ -68,10 +70,7 @@ void wifi_status_show(void){
 	struct ip_info ip;
 	uint8 mac[6];
 	if (wifi_get_macaddr(STATION_IF, &(mac[0]))) {
-		char mac_str[25];
-		os_sprintf((char*)(&(mac_str[0])), "mac: %x:%x:%x:%x:%x:%x\r\n", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
-		
-		uart0_sendStr(&(mac_str[0]));
+		DEBUGUART("mac: %x:%x:%x:%x:%x:%x\r\n", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 	} else {
 		uart0_sendStr("No mac addr available...\r\n");
 	}
@@ -97,9 +96,7 @@ void wifi_status_show(void){
 		case STATION_GOT_IP:
 			uart0_sendStr("Connection: GOT_IP\r\n");
 			if (wifi_get_ip_info(STATION_IF, &ip)) {
-				char ip_str[22];
-				os_sprintf((char*)(&(ip_str[0])), "ip: %d.%d.%d.%d\r\n", IP2STR(&(ip.ip)));
-				uart0_sendStr(&(ip_str[0]));
+				DEBUGUART("ip: %d.%d.%d.%d\r\n", IP2STR(&(ip.ip)));
 			} else {
 				uart0_sendStr("No ip info available...\r\n");
 			}
@@ -107,9 +104,9 @@ void wifi_status_show(void){
 			ip_addr_t ipa;
 			ipa = dns_getserver(0);
 
-			char ip_str[23];
-			os_sprintf((char*)(&(ip_str[0])), "dns: %d.%d.%d.%d\r\n", IP2STR(&(ipa)));
-			uart0_sendStr(&(ip_str[0]));
+			DEBUGUART("dns: %d.%d.%d.%d\r\n", IP2STR(&(ipa)));
+
+			bk_dns_init(0);
 
 			break;
 	}
@@ -147,6 +144,12 @@ void udp_connect_maybe() {
 	if (udp_setup)
 		return;
 	
+
+	// looking up the SRV record
+	char name[255];
+	os_sprintf(name, "_thingsbus._tcp.%s", TBB_ZONE);
+	// bk_dns_query(0, name, DNS_RRTYPE_SRV);
+
 	char temp[23];
 	unsigned long ip = 0;
 	udp_conn.type = ESPCONN_UDP;
@@ -249,8 +252,15 @@ poll_loop(void *arg) {
 		uint8 num_fields = 1;
 
 		struct env_reading reading;
-		reading = read_dht22();
-
+		
+		reading.ok = false;
+		reading.err_msg[0] = 0;
+		
+		// this does not work anyway currently.. We are going to want to make it more pluggable so this isn't a dedicated
+		// codebase for one particular item
+		//os_sprintf((char*)(&(reading.err_msg[0])), "disabled.");
+		//reading = read_dht22();
+		
 		if (reading.ok) {
 			num_fields += 2;
 		} else {
@@ -280,7 +290,7 @@ poll_loop(void *arg) {
 		write_int(&ou, obuf, messages_dropped);
 
 		// send documentation url
-		write_string(&ou, obuf, "https://github.com/eastein/esp8266.dht22");
+		write_string(&ou, obuf, "https://github.com/mistakes-consortium/esp8266.bottlekids");
 	
 
 		char ret = espconn_sent(&udp_conn, obuf, ou);
@@ -295,6 +305,7 @@ poll_loop(void *arg) {
 		messages_dropped++;
 	}
 }
+
 
 struct env_reading read_dht22() {
 	uart0_sendStr("Reading\r\n");
@@ -381,16 +392,12 @@ struct env_reading read_dht22() {
             j_storage++;
     }
 	
-	char data_str[26];
-	os_sprintf((char*)(&(data_str[0])), "read bits: %d\r\n", j_storage);
-	uart0_sendStr(&(data_str[0]));
+	DEBUGUART("read bits: %d\r\n", j_storage);
     
     // do calcs!?
     
     if (j_storage > 39) {
-		char data_str[128];
-		os_sprintf((char*)(&(data_str[0])), "DHT22 data: %x:%x:%x:%x:%x\r\n", return_data[0], return_data[1], return_data[2], return_data[3], return_data[4]);
-		uart0_sendStr(&(data_str[0]));
+		DEBUGUART("DHT22 data: %x:%x:%x:%x:%x\r\n", return_data[0], return_data[1], return_data[2], return_data[3], return_data[4]);
 		
 		checksum =  (return_data[0] + return_data[1] + return_data[2] + return_data[3]) & 0xFF;
         if (return_data[4] == checksum){
@@ -407,11 +414,10 @@ struct env_reading read_dht22() {
                 reading.temp *= -1;
             
 			reading.ok = true;
-            os_sprintf((char*)(&(data_str[0])), "Temp: %f Hum: %f \r\n", reading.temp, reading.hum);
-			uart0_sendStr(&(data_str[0]));
+			DEBUGUART("Temp: %f Hum: %f \r\n", reading.temp, reading.hum);
         }
         else {
-			os_sprintf((char*)(&(reading.err_msg[0])), "bad checksum, %s", data_str);
+			os_sprintf((char*)(&(reading.err_msg[0])), "bad checksum, %s", debugging_str);
             uart0_sendStr("Bad Checksum\r\n");
             
 //             const char *cs = "checksum: %i \r\n", checksum;
