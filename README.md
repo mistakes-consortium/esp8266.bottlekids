@@ -49,3 +49,10 @@ The metadata fields have the following meanings:
 * `msgs_sent` how many UDP samples have been sent successfully, including this one. 
 
 Additional messages could have been dropped after leaving the ESP8266, but that isn't knowable by the sender as it's UDP.
+
+<A name="toc1-52" title="Coding Style" />
+# Coding Style
+
+* Try to avoid putting additional items in the main loop without functionalizing.
+* Be consistent with what's already present
+* Please run all code through astyle before committing to help avoid whitespace merge conflicts.
