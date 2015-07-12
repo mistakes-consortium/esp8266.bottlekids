@@ -440,7 +440,7 @@ user_init()
     uart_init(115200, 115200);
     wifi_init();
     
-    uart0_sendStr("\r\nWifi Initialized\r\n");
+    uart0_sendStr("\r\n[boot] Wi-Fi initialized\r\n");
     
     os_timer_disarm(&loop_timer);
 
@@ -454,6 +454,6 @@ user_init()
     // arm timer, 5s
     os_timer_arm(&loop_timer, 5 * TICKHZ, 1);
 
-    uart0_sendStr("\r\nTimer Rocking Out, should get data soon :)\r\n");
+    uart0_sendStr("\r\n[boot] loop_timer initialized\r\n");
 
 }

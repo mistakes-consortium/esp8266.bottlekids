@@ -72,6 +72,8 @@ $(FW_FILE_2): $(TARGET_OUT)
 burn : $(FW_FILE_1) $(FW_FILE_2)
 	($(ESPTOOL_PY) --port $(FTDI) write_flash 0x00000 0x00000.bin 0x40000 0x40000.bin)||(true)
 
+term :
+	screen $(FTDI) 115200
 
 clean :
 	rm -rf user/*.o driver/*.o $(TARGET_OUT) $(FW_FILE_1) $(FW_FILE_2)
