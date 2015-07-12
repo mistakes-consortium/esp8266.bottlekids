@@ -13,17 +13,17 @@ esp_udp bkdns_net_udp;
 uint16_t seq;
 
 void bk_dns_init(unsigned char dnsnum) {
-	if (bkdns_udp_setup) {
-		return;
-	}
+    if (bkdns_udp_setup) {
+        return;
+    }
 
-	seq = 27; // it would be good to do seq number randomization XXX FIXME
+    seq = 27; // it would be good to do seq number randomization XXX FIXME
 
-	ip_addr_t ipa;
-	ipa = dns_getserver(dnsnum);
+    ip_addr_t ipa;
+    ipa = dns_getserver(dnsnum);
     unsigned long ip = ipa.addr;
 
-	DEBUGUART("dnsip: %d.%d.%d.%d\r\n", IP2STR(&ip));
+    DEBUGUART("dnsip: %d.%d.%d.%d\r\n", IP2STR(&ip));
 
     bkdns_udp_conn.type = ESPCONN_UDP;
     bkdns_udp_conn.state = ESPCONN_NONE;
@@ -116,84 +116,84 @@ PACK_STRUCT_END
 
 // mostly taken from lwip core/dns.c, with modifications
 size_t hostname_to_queryformat(char* name, char* query) {
-	/*
-	@param name char pointer to the start of a c string of the name to convert into query format and copy into the query buffer
-	@param query pointer to location where the query formatted version of the name should be written to 
-	@returns number of bytes used in the query buffer by encoding the name
-	*/
-	uint8_t n;
-	char* nptr;
-	size_t bytes_used = 0;
-	name--;
+    /*
+    @param name char pointer to the start of a c string of the name to convert into query format and copy into the query buffer
+    @param query pointer to location where the query formatted version of the name should be written to
+    @returns number of bytes used in the query buffer by encoding the name
+    */
+    uint8_t n;
+    char* nptr;
+    size_t bytes_used = 0;
+    name--;
 
     /* convert hostname into suitable query format. */
     do {
-      ++name;
-      nptr = query;
-      ++query;
-	  bytes_used++; // nptr points to where the length will be stored. we have 'used' that.
-      for(n = 0; *name != '.' && *name != 0; ++name) {
-        *query = *name;
-		bytes_used++; // we used a byte to store a byte of the name
+        ++name;
+        nptr = query;
         ++query;
-        ++n;
-      }
-	  // we write back to the start (it's length prefix encoded, unsigned 8 bit int)
-      *nptr = n;
+        bytes_used++; // nptr points to where the length will be stored. we have 'used' that.
+        for(n = 0; *name != '.' && *name != 0; ++name) {
+            *query = *name;
+            bytes_used++; // we used a byte to store a byte of the name
+            ++query;
+            ++n;
+        }
+        // we write back to the start (it's length prefix encoded, unsigned 8 bit int)
+        *nptr = n;
     } while(*name != 0);
-	// write a 0 over the end, and then increment the query pointer
-	// this means we're using another byte, I guess... but isn't the *nptr = n line already doing this?
-	
-	bytes_used++;
+    // write a 0 over the end, and then increment the query pointer
+    // this means we're using another byte, I guess... but isn't the *nptr = n line already doing this?
+
+    bytes_used++;
     *query++='\0';
 
-	DEBUGUART("name written to dns query using %d bytes.\r\n", bytes_used);
+    DEBUGUART("name written to dns query using %d bytes.\r\n", bytes_used);
 
-	return bytes_used;
+    return bytes_used;
 }
 
 void dns_response_callback(void *arg, char *pdata, unsigned short len) {
-	DEBUGUART("%s", "UDP response:\r\n");
-	print_hexdump(pdata, len);
+    DEBUGUART("%s", "UDP response:\r\n");
+    print_hexdump(pdata, len);
 }
 
 void bk_dns_query(uint8_t numdns, char* name, uint16_t rrtype) {
-	if (!bkdns_udp_setup) {
-		return;
-	}
+    if (!bkdns_udp_setup) {
+        return;
+    }
 
-	char sendbuf[272]; // 16 bytes for header + question, 256 bytes for name queried
+    char sendbuf[272]; // 16 bytes for header + question, 256 bytes for name queried
 
-	os_memset(sendbuf, 0, 272);
+    os_memset(sendbuf, 0, 272);
 
-	// dns header - flags2 can be left alone and we are just doing 1 question
-	*((uint16_t*)(&(sendbuf[DHO_ID]))) = LWIP_PLATFORM_HTONS(seq);
-	*((uint8_t*)(&(sendbuf[DHO_FL1]))) = DNS_FLAG1_RD;
-	*((uint16_t*)(&(sendbuf[DHO_NQST]))) = LWIP_PLATFORM_HTONS(1);
-	
-	size_t bytes_used = 12;
+    // dns header - flags2 can be left alone and we are just doing 1 question
+    *((uint16_t*)(&(sendbuf[DHO_ID]))) = LWIP_PLATFORM_HTONS(seq);
+    *((uint8_t*)(&(sendbuf[DHO_FL1]))) = DNS_FLAG1_RD;
+    *((uint16_t*)(&(sendbuf[DHO_NQST]))) = LWIP_PLATFORM_HTONS(1);
 
-	// name parameter
-	bytes_used += hostname_to_queryformat(name, &(sendbuf[bytes_used]));
+    size_t bytes_used = 12;
 
-	// query options
-	*((uint16_t*)(&(sendbuf[bytes_used]))) = LWIP_PLATFORM_HTONS(DNS_RRTYPE_SRV);
-	*((uint16_t*)(&(sendbuf[bytes_used + 2]))) = LWIP_PLATFORM_HTONS(DNS_RRCLASS_IN);
-	
-	bytes_used += 4; 
+    // name parameter
+    bytes_used += hostname_to_queryformat(name, &(sendbuf[bytes_used]));
 
-	DEBUGUART("dns packet of size %d\r\n", bytes_used);
+    // query options
+    *((uint16_t*)(&(sendbuf[bytes_used]))) = LWIP_PLATFORM_HTONS(DNS_RRTYPE_SRV);
+    *((uint16_t*)(&(sendbuf[bytes_used + 2]))) = LWIP_PLATFORM_HTONS(DNS_RRCLASS_IN);
 
-	print_hexdump(sendbuf, bytes_used);
+    bytes_used += 4;
 
-	bkdns_udp_conn.recv_callback = dns_response_callback;
+    DEBUGUART("dns packet of size %d\r\n", bytes_used);
 
-	char ret = espconn_sent(&bkdns_udp_conn, sendbuf, bytes_used);
-	if (ret != ESPCONN_OK){
-		uart0_sendStr("Error Sending DNS query Packet...\r\n");
-	} else {
-		uart0_sendStr("Sent DNS query packet\r\n");
-	}
+    print_hexdump(sendbuf, bytes_used);
+
+    bkdns_udp_conn.recv_callback = dns_response_callback;
+
+    char ret = espconn_sent(&bkdns_udp_conn, sendbuf, bytes_used);
+    if (ret != ESPCONN_OK) {
+        uart0_sendStr("Error Sending DNS query Packet...\r\n");
+    } else {
+        uart0_sendStr("Sent DNS query packet\r\n");
+    }
 
 }
 
