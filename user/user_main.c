@@ -144,11 +144,11 @@ void udp_connect_maybe() {
     if (udp_setup)
         return;
 
-
     // looking up the SRV record
     char name[255];
     os_sprintf(name, "_thingsbus._tcp.%s", TBB_ZONE);
-    // bk_dns_query(0, name, DNS_RRTYPE_SRV);
+    DEBUGUART("Query SRV %s\r\n", name);
+    bk_dns_query(0, name);
 
     char temp[23];
     unsigned long ip = 0;
