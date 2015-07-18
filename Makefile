@@ -75,6 +75,10 @@ burn : $(FW_FILE_1) $(FW_FILE_2)
 term :
 	screen $(FTDI) 115200
 
+config :
+	rm user/user_config.h
+	ln -s user_config.$(CONFIG).h user/user_config.h
+
 clean :
 	rm -rf user/*.o driver/*.o $(TARGET_OUT) $(FW_FILE_1) $(FW_FILE_2)
 
