@@ -1,3 +1,5 @@
+user/user_config.*.h
+*~
 *.bin
 user_config.h
 image.elf
