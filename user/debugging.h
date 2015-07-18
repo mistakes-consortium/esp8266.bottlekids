@@ -14,7 +14,8 @@ void print_hexdump(char* data, size_t bytes) {
     DEBUGUART("%d bytes:\r\n", bytes);
 
     uint16_t row;
-    uint8_t per_row = 16;
+    uint8_t spacing = 8;
+    uint8_t per_row = 32;
     uint16_t i;
     int mode = 0;
     int printed;
@@ -32,23 +33,20 @@ void print_hexdump(char* data, size_t bytes) {
                     } else {
                         DEBUGUART(".", c)
                     }
-                } else {
                     printed++;
+                } else {
                     DEBUGUART("%x%x", (c >> 4), (c % 0x10));
                 }
-            }
-            //DEBUGUART("\r\n I printed %d bytes of hex.\r\n", printed);
-
-            for (; i < per_row; i++) {
-                if (mode == 0) {
-                    DEBUGUART("%s", " ");
-                } else {
-                    DEBUGUART("%s", "   ");
+                if ((i + 1) % spacing == 0) {
+                    printed++;
+                    uart0_sendStr(" ");
                 }
             }
 
             if (mode == 0) {
-                DEBUGUART("%s", "  ");
+                for (i = 0; i < (per_row + (per_row / spacing) - printed); i++) {
+                    DEBUGUART("%s", " ");
+                }
             }
         }
         DEBUGUART("%s", "\r\n");
