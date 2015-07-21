@@ -12,17 +12,30 @@ SRCS:=driver/uart.c \
 	
 FTDI:=/dev/ttyUSB0
 
-GCC_FOLDER:=/opt/Espressif/crosstool-NG/builds/xtensa-lx106-elf
-ESPTOOL_PY:=/opt/Espressif/esptool-py/esptool.py
+# begin section for using esp open sdk
+ESP_OPEN_SDK:=/home/eastein/git/esp-open-sdk
+SDK:=$(ESP_OPEN_SDK)/sdk
+GCC_FOLDER:=$(ESP_OPEN_SDK)/xtensa-lx106-elf
+ESPTOOL_PY:=$(ESP_OPEN_SDK)/esptool/esptool.py
+# not sure what to do about this. can esptool.py do it?
 FW_TOOL:=/opt/Espressif/esptool/esptool
-SDK:=/opt/Espressif/esp_iot_sdk_v0.9.5_b1
-XTLIB:=$(SDK)/lib
+
+# end section for using esp open sdk
+
+# begin section for using sdk 0.9.5_b1 installed based on https://github.com/esp8266/esp8266-wiki/wiki/Toolchain
+#GCC_FOLDER:=/opt/Espressif/crosstool-NG/builds/xtensa-lx106-elf
+#ESPTOOL_PY:=/opt/Espressif/esptool-py/esptool.py
+#FW_TOOL:=/opt/Espressif/esptool/esptool
+#SDK:=/opt/Espressif/esp_iot_sdk_v0.9.5_b1
+# end section for manual install
+
+# derived locations
 XTGCCLIB:=$(GCC_FOLDER)/lib/gcc/xtensa-lx106-elf/4.8.2/libgcc.a
 PREFIX:=$(GCC_FOLDER)/bin/xtensa-lx106-elf-
 CC:=$(PREFIX)gcc
+XTLIB:=$(SDK)/lib
 
 CFLAGS:=-mlongcalls -I$(SDK)/include -Imyclib -Iinclude -Idriver -Iuser -Os -I$(SDK)/include/
-
 
 LDFLAGS_CORE:=\
 	-nostdlib \
