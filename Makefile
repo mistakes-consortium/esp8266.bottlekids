@@ -1,4 +1,3 @@
-
 TARGET_OUT:=image.elf
 FW_FILE_1:=$(TARGET_OUT)-0x00000.bin
 FW_FILE_2:=$(TARGET_OUT)-0x40000.bin
@@ -16,7 +15,8 @@ SRCS:=driver/uart.c \
 FTDI:=/dev/ttyUSB0
 
 # begin section for using esp open sdk
-ESP_OPEN_SDK:=/home/eastein/git/esp-open-sdk
+# this references a symlink the user should create to a standalone-built esp-open-sdk
+ESP_OPEN_SDK:=esp-open-sdk
 SDK:=$(ESP_OPEN_SDK)/sdk
 GCC_FOLDER:=$(ESP_OPEN_SDK)/xtensa-lx106-elf
 ESPTOOL_PY:=$(ESP_OPEN_SDK)/esptool/esptool.py

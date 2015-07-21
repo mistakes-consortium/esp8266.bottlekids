@@ -5,21 +5,34 @@ Before it will work, you will need to create `user_config.h`
 
     cp ./user/user_config.example.h ./user/user_config.h
 
+Modify as you see fit, then use `make` to compile. If you want to have multiple configs, you can name them `user_config.whatever.h` and then do this to apply a nice symlink to them (this will delete `user_config.h`):
 
-Modify as you see fit, then use `make` to compile.
+    CONFIG=whatever make config
 
-<A name="toc1-10" title="Dependencies" />
+<A name="toc1-11" title="Dependencies" />
 # Dependencies
 
-You'll want to follow https://github.com/esp8266/esp8266-wiki/wiki in order to do the builds - this covers how to set up the toolchain.
+1) Check out https://github.com/pfalcon/esp-open-sdk - it's an attempt to make the ESP SDK as open as it can be. Some parts are still closed, unfortunately.
+2) Read its readme, do the build steps (as standalone)
+3) make a symlink *here* called `esp-open-sdk` to wherever you checked out `esp-open-sdk`.
 
+You could also follow https://github.com/esp8266/esp8266-wiki/wiki in order to do the builds - this covers how to set up the toolchain. It's more involved and manual and it will certainly take longer. You'll also have to edit the Makefile of this project to use it - although we left parts for it in there, we aren't using it that way anymore...
 
-<A name="toc1-16" title="Burning" />
+<A name="toc1-20" title="Building" />
+# Building
+
+    make all
+
+<A name="toc1-25" title="Burning" />
 # Burning
 
-    make burn
+    sudo make burn
 
-<A name="toc1-21" title="Thingsbus Integration" />
+Another useful Makefile feature is the 'term' command which will set up a screen(1) terminal via the FTDI cable. You can do it in one fell swoop to burn, run, and watch the output:
+
+    sudo make burn term
+
+<A name="toc1-34" title="Thingsbus Integration" />
 # Thingsbus Integration
 
 To configure your module to transmit to a Thingsbus node, you must configure the IP, port, and namespace to use. To learn more about Thingsbus, check out https://github.com/eastein/thingsbus - the IP to use is the broker IP, and the port is the UDP input port.
@@ -28,7 +41,7 @@ To configure your module to transmit to a Thingsbus node, you must configure the
     #define TBB_PORT 7955
     #define TBB_NAMESPACE "esp8266.prototype"
 
-<A name="toc2-30" title="Thingsbus data schema" />
+<A name="toc2-43" title="Thingsbus data schema" />
 ## Thingsbus data schema
 
 
@@ -50,7 +63,7 @@ The metadata fields have the following meanings:
 
 Additional messages could have been dropped after leaving the ESP8266, but that isn't knowable by the sender as it's UDP.
 
-<A name="toc1-52" title="Coding Style" />
+<A name="toc1-65" title="Coding Style" />
 # Coding Style
 
 * Try to avoid putting additional items in the main loop without functionalizing.
