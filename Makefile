@@ -16,14 +16,9 @@ GCC_FOLDER:=/opt/Espressif/crosstool-NG/builds/xtensa-lx106-elf
 ESPTOOL_PY:=/opt/Espressif/esptool-py/esptool.py
 FW_TOOL:=/opt/Espressif/esptool/esptool
 SDK:=/opt/Espressif/esp_iot_sdk_v0.9.5_b1
-
-
 XTLIB:=$(SDK)/lib
-# XTGCCLIB:=$(GCC_FOLDER)/gcc-4.9.1-elf/xtensa-lx106-elf/libgcc/libgcc.a
 XTGCCLIB:=$(GCC_FOLDER)/lib/gcc/xtensa-lx106-elf/4.8.2/libgcc.a
-# FOLDERPREFIX:=$(GCC_FOLDER)/root/bin
-FOLDERPREFIX:=$(GCC_FOLDER)/bin
-PREFIX:=$(FOLDERPREFIX)/xtensa-lx106-elf-
+PREFIX:=$(GCC_FOLDER)/bin/xtensa-lx106-elf-
 CC:=$(PREFIX)gcc
 
 CFLAGS:=-mlongcalls -I$(SDK)/include -Imyclib -Iinclude -Idriver -Iuser -Os -I$(SDK)/include/
