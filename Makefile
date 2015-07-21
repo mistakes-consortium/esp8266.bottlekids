@@ -1,9 +1,12 @@
-all : clean image.elf
-
-FW_FILE_1:=0x00000.bin
-FW_FILE_2:=0x40000.bin
 
 TARGET_OUT:=image.elf
+FW_FILE_1:=$(TARGET_OUT)-0x00000.bin
+FW_FILE_2:=$(TARGET_OUT)-0x40000.bin
+
+all : clean build
+
+build : $(TARGET_OUT) $(FW_FILE_1) $(FW_FILE_2)
+
 OBJS:=driver/uart.o\
 	user/user_main.o
 
@@ -17,15 +20,11 @@ ESP_OPEN_SDK:=/home/eastein/git/esp-open-sdk
 SDK:=$(ESP_OPEN_SDK)/sdk
 GCC_FOLDER:=$(ESP_OPEN_SDK)/xtensa-lx106-elf
 ESPTOOL_PY:=$(ESP_OPEN_SDK)/esptool/esptool.py
-# not sure what to do about this. can esptool.py do it?
-FW_TOOL:=/opt/Espressif/esptool/esptool
-
 # end section for using esp open sdk
 
 # begin section for using sdk 0.9.5_b1 installed based on https://github.com/esp8266/esp8266-wiki/wiki/Toolchain
 #GCC_FOLDER:=/opt/Espressif/crosstool-NG/builds/xtensa-lx106-elf
 #ESPTOOL_PY:=/opt/Espressif/esptool-py/esptool.py
-#FW_TOOL:=/opt/Espressif/esptool/esptool
 #SDK:=/opt/Espressif/esp_iot_sdk_v0.9.5_b1
 # end section for manual install
 
@@ -63,17 +62,14 @@ $(TARGET_OUT) : $(SRCS)
 	$(PREFIX)gcc $(CFLAGS) $^  -flto $(LINKFLAGS) -o $@
 
 
-
 $(FW_FILE_1): $(TARGET_OUT)
-	@echo "FW $@"
-	$(FW_TOOL) -eo $(TARGET_OUT) -bo $@ -bs .text -bs .data -bs .rodata -bc -ec
+	PATH=$(PATH):$(GCC_FOLDER)/bin $(ESPTOOL_PY) elf2image $(TARGET_OUT)
 
 $(FW_FILE_2): $(TARGET_OUT)
-	@echo "FW $@"
-	$(FW_TOOL) -eo $(TARGET_OUT) -es .irom0.text $@ -ec
+	PATH=$(PATH):$(GCC_FOLDER)/bin $(ESPTOOL_PY) elf2image $(TARGET_OUT)
 
 burn : $(FW_FILE_1) $(FW_FILE_2)
-	($(ESPTOOL_PY) --port $(FTDI) write_flash 0x00000 0x00000.bin 0x40000 0x40000.bin)||(true)
+	($(ESPTOOL_PY) --port $(FTDI) write_flash 0x00000 $(FW_FILE_1) 0x40000 $(FW_FILE_2))||(true)
 
 term :
 	screen $(FTDI) 115200
