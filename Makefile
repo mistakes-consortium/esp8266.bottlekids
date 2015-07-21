@@ -26,10 +26,8 @@ FOLDERPREFIX:=$(GCC_FOLDER)/bin
 PREFIX:=$(FOLDERPREFIX)/xtensa-lx106-elf-
 CC:=$(PREFIX)gcc
 
-CFLAGS:=-mlongcalls -I$(SDK)/include -Imyclib -Iinclude -Idriver -Iuser -Os -I$(SDK)/include/ -I /opt/Espressif/ESP8266_SDK/include
+CFLAGS:=-mlongcalls -I$(SDK)/include -Imyclib -Iinclude -Idriver -Iuser -Os -I$(SDK)/include/
 
-#	   \
-#
 
 LDFLAGS_CORE:=\
 	-nostdlib \
@@ -52,9 +50,6 @@ LDFLAGS_CORE:=\
 LINKFLAGS:= \
 	$(LDFLAGS_CORE) \
 	-B$(XTLIB)
-
-#image.elf : $(OBJS)
-#	$(PREFIX)ld $^ $(LDFLAGS) -o $@
 
 $(TARGET_OUT) : $(SRCS)
 	$(PREFIX)gcc $(CFLAGS) $^  -flto $(LINKFLAGS) -o $@
