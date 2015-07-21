@@ -1,4 +1,4 @@
-# Some Work on a standalone DHT-22 client that connects to existing infrastructure
+# Work In Progress Thingsbus Node for ESP8266
 
 Before it will work, you will need to create `user_config.h`
 
@@ -10,9 +10,9 @@ Modify as you see fit, then use `make` to compile. If you want to have multiple 
 
 # Dependencies
 
-1) Check out https://github.com/pfalcon/esp-open-sdk - it's an attempt to make the ESP SDK as open as it can be. Some parts are still closed, unfortunately.
-2) Read its readme, do the build steps (as standalone)
-3) make a symlink *here* called `esp-open-sdk` to wherever you checked out `esp-open-sdk`.
+* Check out https://github.com/pfalcon/esp-open-sdk - it's an attempt to make the ESP SDK as open as it can be. Some parts are still closed, unfortunately.
+* Read its readme, do the build steps (as standalone)
+* make a symlink *here* called `esp-open-sdk` to wherever you checked out `esp-open-sdk`.
 
 You could also follow https://github.com/esp8266/esp8266-wiki/wiki in order to do the builds - this covers how to set up the toolchain. It's more involved and manual and it will certainly take longer. You'll also have to edit the Makefile of this project to use it - although we left parts for it in there, we aren't using it that way anymore...
 
