@@ -53,32 +53,32 @@ size_t hostname_to_queryformat(char* name, char* query) {
 static uint8_t
 dns_compare_name(unsigned char *query, unsigned char *response_ptr, uint16_t response_size, uint16_t offset)
 {
-  unsigned char n;
-  unsigned char* response = response_ptr;
-  unsigned char* end = response_ptr + response_size;
-  response += offset;
+    unsigned char n;
+    unsigned char* response = response_ptr;
+    unsigned char* end = response_ptr + response_size;
+    response += offset;
 
-  do {
-    n = *response++;
-    /** @see RFC 1035 - 4.1.4. Message compression */
-    if ((n & 0xc0) == 0xc0) {
-      /* Compressed name */
-      break;
-    } else {
-      /* Not compressed name */
-      while (n > 0) {
-        if ((*query) != (*response)) {
-          return 1;
+    do {
+        n = *response++;
+        /** @see RFC 1035 - 4.1.4. Message compression */
+        if ((n & 0xc0) == 0xc0) {
+            /* Compressed name */
+            break;
+        } else {
+            /* Not compressed name */
+            while (n > 0) {
+                if ((*query) != (*response)) {
+                    return 1;
+                }
+                ++response;
+                ++query;
+                --n;
+            };
+            ++query;
         }
-        ++response;
-        ++query;
-        --n;
-      };
-      ++query;
-    }
-  } while (*response != 0);
+    } while (*response != 0);
 
-  return 0;
+    return 0;
 }
 
 
