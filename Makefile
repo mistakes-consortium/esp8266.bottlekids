@@ -78,6 +78,11 @@ config :
 	rm user/user_config.h
 	ln -s user_config.$(CONFIG).h user/user_config.h
 
+test :
+	rm -f tests/testsuite
+	gcc tests/testsuite.c -o tests/testsuite
+	tests/testsuite
+
 clean :
 	rm -rf user/*.o driver/*.o $(TARGET_OUT) $(FW_FILE_1) $(FW_FILE_2)
 
