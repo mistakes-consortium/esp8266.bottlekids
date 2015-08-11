@@ -56,28 +56,46 @@ dns_compare_name(unsigned char *query, unsigned char *response_ptr, uint16_t res
     unsigned char n;
     unsigned char* response = response_ptr;
     unsigned char* end = response_ptr + response_size;
-    response += offset;
+    //response += offset;
+
+    uint16_t offset_bookmark = 0;
+
+    //printf(">>>>>> begin!\n");
 
     do {
-        n = *response++;
-        /** @see RFC 1035 - 4.1.4. Message compression */
+        // how many bytes and/or
+        n = response[offset++];
+        //printf("n = %d\n", n);
         if ((n & 0xc0) == 0xc0) {
+            /** @see RFC 1035 - 4.1.4. Message compression */
             /* Compressed name */
-            break;
+            offset_bookmark = offset + 1;
+            offset = 255 * (0xc0 ^ n) + response[offset++];
+            //printf("found offset to be %d after decoding pointer.\n", n);
         } else {
             /* Not compressed name */
             while (n > 0) {
-                if ((*query) != (*response)) {
+                if ((*query) != (response[offset])) {
+                    //printf("<<<<<< a byte did not match. no match! Char in response was %c, in query was %c\n", response[offset], *query);
                     return 1;
                 }
-                ++response;
+                //printf("a byte did match.. %c\n", *query);
+                ++offset;
                 ++query;
                 --n;
             };
             ++query;
-        }
-    } while (*response != 0);
 
+            if (offset_bookmark != 0) {
+                offset = offset_bookmark;
+                offset_bookmark = 0;
+                //printf("restored the offset bookmark to %d\n", offset);
+            }
+        }
+
+    } while (response[offset] != 0);
+
+    //printf("<<<<<< reached end. match!\n");
     return 0;
 }
 
