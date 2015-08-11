@@ -9,6 +9,7 @@ unsigned char dns_response[] = {
     0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 255, 255, // 12 bytes of random stuff for fun..
     1, 'a', 7, 'e', 'x', 'a', 'm', 'p', 'l', 'e', 3, 'c', 'o', 'm', 0,
     1, 'a', 0xc0, 14, 3, 'o', 'r', 'g', 0,
+    0xc0, 36, 0
 };
 
 void test_dnsname_no_compression()
@@ -26,7 +27,8 @@ void test_dnsname_no_compression()
     ASSERT_EQUALS(1, dns_compare_name("a.examplea.com.", dns_response, sizeof(dns_response), 12));
     // one segment too short....
     ASSERT_EQUALS(1, dns_compare_name("a.exampl.com.", dns_response, sizeof(dns_response), 12));
-
+    // no infinite loop....
+    ASSERT_EQUALS(1, dns_compare_name(".", dns_response, sizeof(dns_response), 36));
 }
 
 void test_dnsname_with_compression()

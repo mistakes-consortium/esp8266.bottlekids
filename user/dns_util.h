@@ -69,6 +69,10 @@ dns_compare_name(unsigned char *query, unsigned char *response_ptr, uint16_t res
         if ((n & 0xc0) == 0xc0) {
             /** @see RFC 1035 - 4.1.4. Message compression */
             /* Compressed name */
+            if (offset_bookmark != 0) {
+               //printf("<<<<<< this would be an infinite loop. no match, invalid formatting.\n");
+               return 1;
+            }
             offset_bookmark = offset + 1;
             offset = 255 * (0xc0 ^ n) + response[offset++];
             //printf("found offset to be %d after decoding pointer.\n", n);
