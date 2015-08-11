@@ -70,15 +70,23 @@ dns_compare_name(unsigned char *query, unsigned char *response_ptr, uint16_t res
             /** @see RFC 1035 - 4.1.4. Message compression */
             /* Compressed name */
             if (offset_bookmark != 0) {
-               //printf("<<<<<< this would be an infinite loop. no match, invalid formatting.\n");
-               return 1;
+                //printf("<<<<<< this would be an infinite loop. no match, invalid formatting.\n");
+                return 1;
             }
             offset_bookmark = offset + 1;
             offset = 255 * (0xc0 ^ n) + response[offset++];
             //printf("found offset to be %d after decoding pointer.\n", n);
+            if ((offset >= response_size) || (offset == 0)) {
+                //printf("<<<<<<<< pointer out of range (offset=%d). No match.\n", offset);
+                return 1;
+            }
         } else {
             /* Not compressed name */
             while (n > 0) {
+                if (offset >= response_size) {
+                    //printf("<<<<<< offset has grown larger than size of response. no match.\n");
+                    return 1;
+                }
                 if ((*query) != (response[offset])) {
                     //printf("<<<<<< a byte did not match. no match! Char in response was %c, in query was %c\n", response[offset], *query);
                     return 1;
@@ -94,6 +102,11 @@ dns_compare_name(unsigned char *query, unsigned char *response_ptr, uint16_t res
                 offset = offset_bookmark;
                 offset_bookmark = 0;
                 //printf("restored the offset bookmark to %d\n", offset);
+            }
+
+            if (offset >= response_size) {
+                //printf("<<<<<< offset has grown larger than size of response. no match.\n");
+                return 1;
             }
         }
 

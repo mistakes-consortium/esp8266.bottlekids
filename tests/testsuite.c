@@ -12,6 +12,12 @@ unsigned char dns_response[] = {
     0xc0, 36, 0
 };
 
+// this one is too short.
+unsigned char dns_smallresponse[] = {
+    0, 0, 0, 0,
+    4, 't', 'e', 's', 't', 3, 'c', 'o', 'm', 0
+};
+
 void test_dnsname_no_compression()
 {
     // no dns compression, name compare simply and it works
@@ -27,8 +33,18 @@ void test_dnsname_no_compression()
     ASSERT_EQUALS(1, dns_compare_name("a.examplea.com.", dns_response, sizeof(dns_response), 12));
     // one segment too short....
     ASSERT_EQUALS(1, dns_compare_name("a.exampl.com.", dns_response, sizeof(dns_response), 12));
+}
+
+void test_malicious_input_rejected() {
     // no infinite loop....
     ASSERT_EQUALS(1, dns_compare_name(".", dns_response, sizeof(dns_response), 36));
+}
+
+void test_bounds_truncate() {
+    ASSERT_EQUALS(0, dns_compare_name("test.com", dns_smallresponse, sizeof(dns_smallresponse), 4));
+    ASSERT_EQUALS(1, dns_compare_name("test.com", dns_smallresponse, sizeof(dns_smallresponse) - 2, 4));
+    ASSERT_EQUALS(1, dns_compare_name("test.com", dns_smallresponse, sizeof(dns_smallresponse) - 1, 4));
+
 }
 
 void test_dnsname_with_compression()
@@ -48,5 +64,7 @@ int main()
 {
     RUN(test_dnsname_no_compression);
     RUN(test_dnsname_with_compression);
+    RUN(test_malicious_input_rejected);
+    RUN(test_bounds_truncate);
     return TEST_REPORT();
 }
