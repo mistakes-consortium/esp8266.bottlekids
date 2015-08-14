@@ -51,6 +51,8 @@ void test_dnsname_with_compression()
 {
     // pointer to the part of the message that used DNS compression properly. False positive in stock LWIP...
     ASSERT_EQUALS(0, dns_compare_name("a.example.org", dns_response, sizeof(dns_response), 27));
+    // it should work when case insensitive also, see RFC 4343 sec 4.1
+    ASSERT_EQUALS(0, dns_compare_name("a.Example.org", dns_response, sizeof(dns_response), 27));
 
     // below here is where things failed before my substantive changes.  This code code from lwip had
     // anything that has dns compression matching everything as soon as the compression kicks in..

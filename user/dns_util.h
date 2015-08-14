@@ -1,6 +1,25 @@
 #ifndef BK_DNS_UTIL_H
 #define BK_DNS_UTIL_H 1
 
+inline unsigned char casefold(unsigned char c) {
+    // subtract 0x20 from all octets in the inclusive range from 0x61 to 0x7A before comparing
+
+    if ((c >= 0x61) && (c <= 0x7a)) {
+        return c - 0x20;
+    }
+    return c;
+}
+
+inline
+uint8_t
+compare_chars(unsigned char a, unsigned char b) {
+    if (casefold(a) == casefold(b)) {
+        return 0;
+    } else {
+        return 1;
+    }
+}
+
 // mostly taken from lwip core/dns.c, with modifications
 size_t hostname_to_queryformat(char* name, char* query) {
     /*
@@ -87,7 +106,7 @@ dns_compare_name(unsigned char *query, unsigned char *response_ptr, uint16_t res
                     //printf("<<<<<< offset has grown larger than size of response. no match.\n");
                     return 1;
                 }
-                if ((*query) != (response[offset])) {
+                if (compare_chars(*query, response[offset]) != 0) {
                     //printf("<<<<<< a byte did not match. no match! Char in response was %c, in query was %c\n", response[offset], *query);
                     return 1;
                 }
