@@ -8,8 +8,12 @@
 unsigned char dns_response[] = {
     0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 255, 255, // 12 bytes of random stuff for fun..
     1, 'a', 7, 'e', 'x', 'a', 'm', 'p', 'l', 'e', 3, 'c', 'o', 'm', 0,
-    1, 'a', 0xc0, 14, 3, 'o', 'r', 'g', 0,
-    0xc0, 36, 0
+    1, 'b', 0xc0, 14
+};
+
+unsigned char evil_dns_response_selfreference[] = {
+    0, 0,
+    0xc0, 2
 };
 
 // this one is too short.
@@ -37,7 +41,7 @@ void test_dnsname_no_compression()
 
 void test_malicious_input_rejected() {
     // no infinite loop....
-    ASSERT_EQUALS(1, dns_compare_name(".", dns_response, sizeof(dns_response), 36));
+    ASSERT_EQUALS(1, dns_compare_name(".", evil_dns_response_selfreference, sizeof(evil_dns_response_selfreference), 2));
 }
 
 void test_bounds_truncate() {
@@ -50,15 +54,14 @@ void test_bounds_truncate() {
 void test_dnsname_with_compression()
 {
     // pointer to the part of the message that used DNS compression properly. False positive in stock LWIP...
-    ASSERT_EQUALS(0, dns_compare_name("a.example.org", dns_response, sizeof(dns_response), 27));
+    ASSERT_EQUALS(0, dns_compare_name("b.example.com", dns_response, sizeof(dns_response), 27));
     // it should work when case insensitive also, see RFC 4343 sec 4.1
-    ASSERT_EQUALS(0, dns_compare_name("a.Example.org", dns_response, sizeof(dns_response), 27));
+    ASSERT_EQUALS(0, dns_compare_name("b.Example.com", dns_response, sizeof(dns_response), 27));
 
     // below here is where things failed before my substantive changes.  This code code from lwip had
     // anything that has dns compression matching everything as soon as the compression kicks in..
     // pointer to the compressed a.example.com in the message, but we aren't comparing that
-    //FIXME re-enable test once working...
-    ASSERT_EQUALS(1, dns_compare_name("a.bing.com", dns_response, sizeof(dns_response), 27));
+    ASSERT_EQUALS(1, dns_compare_name("b.bing.com", dns_response, sizeof(dns_response), 27));
 }
 
 /* test runner */

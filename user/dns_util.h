@@ -76,8 +76,7 @@ dns_compare_name(unsigned char *query, unsigned char *response_ptr, uint16_t res
     unsigned char* response = response_ptr;
     unsigned char* end = response_ptr + response_size;
     //response += offset;
-
-    uint16_t offset_bookmark = 0;
+    uint8_t compression_jumped = 1;
 
     //printf(">>>>>> begin!\n");
 
@@ -88,15 +87,23 @@ dns_compare_name(unsigned char *query, unsigned char *response_ptr, uint16_t res
         if ((n & 0xc0) == 0xc0) {
             /** @see RFC 1035 - 4.1.4. Message compression */
             /* Compressed name */
-            if (offset_bookmark != 0) {
-                //printf("<<<<<< this would be an infinite loop. no match, invalid formatting.\n");
-                return 1;
-            }
-            offset_bookmark = offset + 1;
-            offset = 255 * (0xc0 ^ n) + response[offset++];
-            //printf("found offset to be %d after decoding pointer.\n", n);
+
             if ((offset >= response_size) || (offset == 0)) {
                 //printf("<<<<<<<< pointer out of range (offset=%d). No match.\n", offset);
+                return 1;
+            }
+
+            if (compression_jumped == 0) {
+                //printf("<<<<<< you can only do one compression jump per name.\n");
+                return 1;
+            }
+            compression_jumped = 0;
+
+            uint16_t current_offset = offset - 1;
+            offset = 255 * (0xc0 ^ n) + response[offset++];
+            //printf("found offset to be %d after decoding pointer.\n", n);
+            if (offset >= current_offset) {
+                //printf("<<<<<<< forward pointers disallowed. No match. current offset=%d, jump=%d\n", current_offset, offset);
                 return 1;
             }
         } else {
@@ -116,12 +123,6 @@ dns_compare_name(unsigned char *query, unsigned char *response_ptr, uint16_t res
                 --n;
             };
             ++query;
-
-            if (offset_bookmark != 0) {
-                offset = offset_bookmark;
-                offset_bookmark = 0;
-                //printf("restored the offset bookmark to %d\n", offset);
-            }
 
             if (offset >= response_size) {
                 //printf("<<<<<< offset has grown larger than size of response. no match.\n");
