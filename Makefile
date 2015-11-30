@@ -78,6 +78,9 @@ config :
 	rm user/user_config.h
 	ln -s user_config.$(CONFIG).h user/user_config.h
 
+astyle :
+	find tests user -type f -regex '.*\.[hc]'|xargs -l1 astyle -k3 -n -f
+
 test :
 	rm -f tests/testsuite
 	gcc tests/testsuite.c -o tests/testsuite
