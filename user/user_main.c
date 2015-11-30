@@ -66,9 +66,10 @@ void ICACHE_FLASH_ATTR at_recvTask()
     //Called from UART.
 }
 
-void wifi_status_show(void) {
+void ICACHE_FLASH_ATTR wifi_status_show(void) {
     struct ip_info ip;
     uint8 mac[6];
+
     if (wifi_get_macaddr(STATION_IF, &(mac[0]))) {
         DEBUGUART("mac: %x:%x:%x:%x:%x:%x\r\n", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
     } else {
@@ -81,20 +82,26 @@ void wifi_status_show(void) {
     case STATION_IDLE:
         uart0_sendStr("Connection: IDLE\r\n");
         break;
+
     case STATION_CONNECTING:
         uart0_sendStr("Connection: CONNECTING\r\n");
         break;
+
     case STATION_WRONG_PASSWORD:
         uart0_sendStr("Connection: WRONG_PASSWORD\r\n");
         break;
+
     case STATION_NO_AP_FOUND:
         uart0_sendStr("Connection: NO_AP_FOUND\r\n");
         break;
+
     case STATION_CONNECT_FAIL:
         uart0_sendStr("Connection: CONNECT_FAIL\r\n");
         break;
+
     case STATION_GOT_IP:
         uart0_sendStr("Connection: GOT_IP\r\n");
+
         if (wifi_get_ip_info(STATION_IF, &ip)) {
             DEBUGUART("ip: %d.%d.%d.%d\r\n", IP2STR(&(ip.ip)));
         } else {
@@ -119,7 +126,7 @@ void wifi_status_show(void) {
 }
 
 
-void wifi_init(void) {
+void ICACHE_FLASH_ATTR wifi_init(void) {
     char ssid[32] = WIFI_SSID;
     char password[64] = WIFI_PASS;
 
@@ -140,15 +147,18 @@ void wifi_init(void) {
     wifi_station_set_auto_connect(1);
 }
 
-void udp_connect_maybe() {
+void ICACHE_FLASH_ATTR udp_connect_maybe() {
     if (udp_setup)
         return;
 
     // looking up the SRV record
+
+    /*
     char name[255];
-    os_sprintf(name, "_thingsbus._tcp.%s", TBB_ZONE);
+    os_sprintf(name, "_thingsbus_input._udp.%s", TBB_ZONE);
     DEBUGUART("Query SRV %s\r\n", name);
     bk_dns_query(0, name);
+    */
 
     char temp[23];
     unsigned long ip = 0;
@@ -166,6 +176,7 @@ void udp_connect_maybe() {
     os_sprintf(temp, ":%d\r\n", TBB_PORT);
     uart0_sendStr(temp);
     os_memcpy(udp_conn.proto.udp->remote_ip, &ip, 4);
+
     if (espconn_create(&udp_conn) == ESPCONN_OK) {
         udp_setup = true;
     } else {
@@ -175,54 +186,60 @@ void udp_connect_maybe() {
 
 // fixme support > 15 size
 // this only starts the list. You are expected to write the elements of the list and do the right number of elements.
-void write_list(size_t *ou, char* obuf, uint8 lsize) {
+inline void write_list(size_t *ou, char *obuf, uint8 lsize) {
     obuf[(*ou)++] = 0b10010000 + lsize;
 }
 
 // fixme support > 15 size
 // this only starts the map. You are expected to write the (k,v), (k,v) pairs and do the right number of them.
-void write_map(size_t *ou, char* obuf, uint8 msize) {
+inline void write_map(size_t *ou, char *obuf, uint8 msize) {
     obuf[(*ou)++] = 0b10000000 + msize;
 }
 
-void write_nil(size_t *ou, char* obuf) {
+inline void write_nil(size_t *ou, char *obuf) {
     obuf[(*ou)++] = 0xc0;
 }
 
 //fixme support > 255 sizes, this won't work
-void write_string(size_t *ou, char* obuf, char* str) {
+void ICACHE_FLASH_ATTR write_string(size_t *ou, char *obuf, char *str) {
     size_t sl = os_strlen(str);
+
     if (sl < 32) {
         obuf[(*ou)++] = 0b10100000 + (uint8)sl;
     } else {
         obuf[(*ou)++] = 0xd9;
         obuf[(*ou)++] = (uint8)sl;
     }
+
     os_memcpy(obuf + *ou, str, sl);
     (*ou) += sl;
 }
 
 
-void write_float(size_t *ou, char* obuf, float num) {
+void ICACHE_FLASH_ATTR write_float(size_t *ou, char *obuf, float num) {
     const size_t sl = sizeof(num);
+
     if (sl == 4) {
         obuf[(*ou)++] = 0xca;
     } else if (sl == 8) {
         obuf[(*ou)++] = 0xcb;
     }
+
     // msgpack is big endian, this CPU is little endian.. fun times.
     size_t i;
+
     for (i = 0; i < sl; i++) {
-        obuf[(*ou)++] = ((char*)(&num))[sl - 1 - i];
+        obuf[(*ou)++] = ((char *)(&num))[sl - 1 - i];
     }
 }
 
-void write_int(size_t *ou, char* obuf, uint32 num) {
+void ICACHE_FLASH_ATTR write_int(size_t *ou, char *obuf, uint32 num) {
     const size_t sl = sizeof(num);
     obuf[(*ou)++] = 0xce;
     size_t i;
+
     for (i = 0; i < sl; i++) {
-        obuf[(*ou)++] = ((char*)(&num))[sl - 1 - i];
+        obuf[(*ou)++] = ((char *)(&num))[sl - 1 - i];
     }
 }
 
@@ -266,6 +283,7 @@ poll_loop(void *arg) {
         } else {
             num_fields += 1;
         }
+
         // send data
         write_map(&ou, obuf, num_fields);
 
@@ -294,6 +312,7 @@ poll_loop(void *arg) {
 
 
         char ret = espconn_sent(&udp_conn, obuf, ou);
+
         if (ret != ESPCONN_OK) {
             uart0_sendStr("Error Sending UDP Packet...\r\n");
             messages_dropped++;
@@ -355,6 +374,7 @@ struct env_reading read_dht22() {
         os_delay_us(1);
         i_wait++;
     }
+
     if(i_wait==DHT_WAIT_PERIOD) {
         // timeout, try again soon
         uart0_sendStr("timeout?\r\n");
@@ -365,6 +385,7 @@ struct env_reading read_dht22() {
 
     for (pc = 0; pc < DHT_PULSES; pc++) {
         counter = 0;
+
         while (GPIO_INPUT_GET(DHT_READ_PIN) == prevstate) {
             counter++;
             os_delay_us(1);
@@ -375,8 +396,10 @@ struct env_reading read_dht22() {
                 break;
             }
         }
+
         // same here
         prevstate = GPIO_INPUT_GET(DHT_READ_PIN);
+
         if (counter == 1000) {
             uart0_sendStr("giving up inside external check for DHT22.\r\n");
             break;
@@ -386,9 +409,12 @@ struct env_reading read_dht22() {
         // so we shove it in to the array, every other bit recieved is low so we don't store it
         // plus the 80us preambles?
         if (( pc >3 ) && ( pc % 2 == 0 ));
+
         return_data[j_storage/8] <<= 1;
+
         if (counter > DHT_WAIT)
             return_data[j_storage/8] |= 1;
+
         j_storage++;
     }
 
@@ -400,6 +426,7 @@ struct env_reading read_dht22() {
         DEBUGUART("DHT22 data: %x:%x:%x:%x:%x\r\n", return_data[0], return_data[1], return_data[2], return_data[3], return_data[4]);
 
         checksum =  (return_data[0] + return_data[1] + return_data[2] + return_data[3]) & 0xFF;
+
         if (return_data[4] == checksum) {
             // do  the calcs for humidity
             reading.hum = return_data[0] * 256 + return_data[1];
@@ -417,7 +444,7 @@ struct env_reading read_dht22() {
             DEBUGUART("Temp: %f Hum: %f \r\n", reading.temp, reading.hum);
         }
         else {
-            os_sprintf((char*)(&(reading.err_msg[0])), "bad checksum, %s", debugging_str);
+            os_sprintf((char *)(&(reading.err_msg[0])), "bad checksum, %s", debugging_str);
             uart0_sendStr("Bad Checksum\r\n");
 
 //             const char *cs = "checksum: %i \r\n", checksum;
