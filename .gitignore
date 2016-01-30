@@ -1,3 +1,4 @@
+*.orig
 user/user_config.*.h
 user_config.h
 
@@ -6,3 +7,5 @@ user_config.h
 image.elf
 
 esp-open-sdk
+
+.idea

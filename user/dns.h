@@ -1,26 +1,30 @@
 #ifndef BK_DNS_H
 #define BK_DNS_H 1
 
+#include "bkmacros.h"
+
 #include "c_types.h"
 #include "user_interface.h"
 #include "ip_addr.h"
 #include "espconn.h"
 #include "debugging.h"
+#include "bk_rng.h"
 
-bool bkdns_udp_setup = false;
+
+bool bk_dns_initialized = false;
 struct espconn bkdns_udp_conn;
+struct bk_rng_state bk_dns_rng;
 esp_udp bkdns_net_udp;
-uint16_t seq;
 
 
-void dns_response_callback(void *arg, char *pdata, unsigned short len);
+void bk_dns_response_callback(void *arg, char *pdata, unsigned short len);
 
-void bk_dns_init(unsigned char dnsnum) {
-    if (bkdns_udp_setup) {
+void BK_CACHEABLE bk_dns_init(unsigned char dnsnum) {
+    if (bk_dns_initialized) {
         return;
     }
 
-    seq = 27; // it would be good to do seq number randomization, gonna get owned XXX FIXME
+    bk_rng_init(&bk_dns_rng);
 
     ip_addr_t ipa;
     ipa = dns_getserver(dnsnum);
@@ -33,11 +37,12 @@ void bk_dns_init(unsigned char dnsnum) {
     bkdns_udp_conn.proto.udp = &bkdns_net_udp;
     bkdns_udp_conn.proto.udp->local_port = espconn_port();
     bkdns_udp_conn.proto.udp->remote_port = 53;
-    bkdns_udp_conn.recv_callback = dns_response_callback;
+    bkdns_udp_conn.recv_callback = bk_dns_response_callback;
     DEBUGUART("DNS Source Port: %d Target Port: %d\r\n", bkdns_udp_conn.proto.udp->local_port, bkdns_udp_conn.proto.udp->remote_port);
     os_memcpy(bkdns_udp_conn.proto.udp->remote_ip, &ip, 4);
+
     if (espconn_create(&bkdns_udp_conn) == ESPCONN_OK) {
-        bkdns_udp_setup = true;
+        bk_dns_initialized = true;
     } else {
         uart0_sendStr("Failed to create DNS UDP connection...\r\n");
     }
@@ -118,80 +123,46 @@ PACK_STRUCT_END
 #define DNS_RRCLASS_HS            4     /* Hesiod [Dyer 87] */
 #define DNS_RRCLASS_FLUSH         0x800 /* Flush bit */
 
-// mostly taken from lwip core/dns.c, with modifications
-size_t hostname_to_queryformat(char* name, char* query) {
-    /*
-    @param name char pointer to the start of a c string of the name to convert into query format and copy into the query buffer
-    @param query pointer to location where the query formatted version of the name should be written to
-    @returns number of bytes used in the query buffer by encoding the name
-    */
-    uint8_t n;
-    char* nptr;
-    size_t bytes_used = 0;
-    name--;
+#include "dns_util.h"
 
-    /* convert hostname into suitable query format. */
-    do {
-        ++name;
-        nptr = query;
-        ++query;
-        bytes_used++; // nptr points to where the length will be stored. we have 'used' that.
-        for(n = 0; *name != '.' && *name != 0; ++name) {
-            *query = *name;
-            bytes_used++; // we used a byte to store a byte of the name
-            ++query;
-            ++n;
-        }
-        // we write back to the start (it's length prefix encoded, unsigned 8 bit int)
-        *nptr = n;
-    } while(*name != 0);
-    // write a 0 over the end, and then increment the query pointer
-    // this means we're using another byte, I guess... but isn't the *nptr = n line already doing this?
-
-    bytes_used++;
-    *query++='\0';
-
-    DEBUGUART("name written to dns query using %d bytes.\r\n", bytes_used);
-
-    return bytes_used;
-}
-
-inline void write_uint16(char* buf, uint16_t v) {
+inline void write_uint16(char *buf, uint16_t v) {
     // alignment for 16 bit is 2 bytes, so we can't treat it that way unless we're lucky to be on
     // an aligned access
     uint16_t tmp16 = LWIP_PLATFORM_HTONS(v);
-    os_memcpy(buf, (char*)(&tmp16), 2);
+    os_memcpy(buf, (char *)(&tmp16), 2);
 }
 
-void bk_dns_query(uint8_t numdns, char* name) {
+void BK_CACHEABLE bk_dns_query(uint8_t numdns, char *name) {
     /*
     TODO make this smart enough to allow multiple pending DNS queries, and actually parse
          the response fully, plus support more than just SRV...
     */
-    if (!bkdns_udp_setup) {
+    if (!bk_dns_initialized) {
         return;
     }
 
     // 18 bytes for header + question + other overhead, 256 bytes for name queried
     char sendbuf[274];
-    char* sendbuf_ptr = (char*)(&sendbuf);
+    char *sendbuf_ptr = (char *)(&sendbuf);
 
     os_memset(sendbuf, 0, 274);
 
+    uint16_t seq = bk_rng_16bit(&bk_dns_rng);
+
     // dns header - flags2 can be left alone and we are just doing 1 question
     write_uint16(sendbuf_ptr + DHO_ID, seq);
-    *((uint8_t*)(&(sendbuf[DHO_FL1]))) = DNS_FLAG1_RD;
+    *((uint8_t *)(&(sendbuf[DHO_FL1]))) = DNS_FLAG1_RD;
     write_uint16(sendbuf_ptr + DHO_NQST, 1);
 
     size_t bytes_used = 12;
 
     // name parameter
-    bytes_used += hostname_to_queryformat(name, &(sendbuf[bytes_used]));
+    bytes_used += bk_hostname_to_queryformat(name, &(sendbuf[bytes_used]));
 
     DEBUGUART("bk_dns_query: wrote hostname to query. bytes_used=%d\r\n", bytes_used);
 
     // query options
-    sendbuf_ptr = (char*) &(sendbuf[bytes_used]);
+    sendbuf_ptr = (char *) &(sendbuf[bytes_used]);
     write_uint16(sendbuf_ptr, DNS_RRTYPE_SRV);
     write_uint16(sendbuf_ptr + 2, DNS_RRCLASS_IN);
     bytes_used += 4;
@@ -201,6 +172,7 @@ void bk_dns_query(uint8_t numdns, char* name) {
     print_hexdump(sendbuf, bytes_used);
 
     char ret = espconn_sent(&bkdns_udp_conn, sendbuf, bytes_used);
+
     if (ret != ESPCONN_OK) {
         uart0_sendStr("bk_dns_query: Error Sending DNS query Packet...\r\n");
     } else {
@@ -209,7 +181,7 @@ void bk_dns_query(uint8_t numdns, char* name) {
 }
 
 
-void dns_response_callback(void *arg, char *pdata, unsigned short len) {
+void BK_CACHEABLE bk_dns_response_callback(void *arg, char *pdata, unsigned short len) {
     DEBUGUART("%s", "UDP response:\r\n");
     print_hexdump(pdata, len);
 }
