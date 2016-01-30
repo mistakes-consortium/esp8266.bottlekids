@@ -34,7 +34,7 @@ PREFIX:=$(GCC_FOLDER)/bin/xtensa-lx106-elf-
 CC:=$(PREFIX)gcc
 XTLIB:=$(SDK)/lib
 
-CFLAGS:=-mlongcalls -I$(SDK)/include -Imyclib -Iinclude -Idriver -Iuser -Os -I$(SDK)/include/
+CFLAGS:=-mlongcalls -Werror -I$(SDK)/include -Imyclib -Iinclude -Idriver -Iuser -Os -I$(SDK)/include/
 
 LDFLAGS_CORE:=\
 	-nostdlib \
