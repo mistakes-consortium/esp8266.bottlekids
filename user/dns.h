@@ -10,18 +10,21 @@
 #include "debugging.h"
 #include "bk_rng.h"
 
-bool bkdns_udp_setup = false;
+
+bool bk_dns_initialized = false;
 struct espconn bkdns_udp_conn;
+struct bk_rng_state bk_dns_rng;
 esp_udp bkdns_net_udp;
 
 
 void bk_dns_response_callback(void *arg, char *pdata, unsigned short len);
 
 void BK_CACHEABLE bk_dns_init(unsigned char dnsnum) {
-    if (bkdns_udp_setup) {
+    if (bk_dns_initialized) {
         return;
     }
 
+    bk_rng_init(&bk_dns_rng);
 
     ip_addr_t ipa;
     ipa = dns_getserver(dnsnum);
@@ -39,7 +42,7 @@ void BK_CACHEABLE bk_dns_init(unsigned char dnsnum) {
     os_memcpy(bkdns_udp_conn.proto.udp->remote_ip, &ip, 4);
 
     if (espconn_create(&bkdns_udp_conn) == ESPCONN_OK) {
-        bkdns_udp_setup = true;
+        bk_dns_initialized = true;
     } else {
         uart0_sendStr("Failed to create DNS UDP connection...\r\n");
     }
@@ -134,7 +137,7 @@ void BK_CACHEABLE bk_dns_query(uint8_t numdns, char *name) {
     TODO make this smart enough to allow multiple pending DNS queries, and actually parse
          the response fully, plus support more than just SRV...
     */
-    if (!bkdns_udp_setup) {
+    if (!bk_dns_initialized) {
         return;
     }
 
@@ -144,7 +147,7 @@ void BK_CACHEABLE bk_dns_query(uint8_t numdns, char *name) {
 
     os_memset(sendbuf, 0, 274);
 
-    uint16_t seq = (uint16_t)esp_hardware_rng();
+    uint16_t seq = bk_rng_16bit(&bk_dns_rng);
 
     // dns header - flags2 can be left alone and we are just doing 1 question
     write_uint16(sendbuf_ptr + DHO_ID, seq);
