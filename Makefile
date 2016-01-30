@@ -1,9 +1,11 @@
-all : clean image.elf
-
-FW_FILE_1:=0x00000.bin
-FW_FILE_2:=0x40000.bin
-
 TARGET_OUT:=image.elf
+FW_FILE_1:=$(TARGET_OUT)-0x00000.bin
+FW_FILE_2:=$(TARGET_OUT)-0x40000.bin
+
+all : clean build
+
+build : $(TARGET_OUT) $(FW_FILE_1) $(FW_FILE_2)
+
 OBJS:=driver/uart.o\
 	user/user_main.o
 
@@ -12,24 +14,27 @@ SRCS:=driver/uart.c \
 	
 FTDI:=/dev/ttyUSB0
 
-GCC_FOLDER:=/opt/Espressif/crosstool-NG/builds/xtensa-lx106-elf
-ESPTOOL_PY:=/opt/Espressif/esptool-py/esptool.py
-FW_TOOL:=/opt/Espressif/esptool/esptool
-SDK:=/opt/Espressif/esp_iot_sdk_v0.9.5_b1
+# begin section for using esp open sdk
+# this references a symlink the user should create to a standalone-built esp-open-sdk
+ESP_OPEN_SDK:=esp-open-sdk
+SDK:=$(ESP_OPEN_SDK)/sdk
+GCC_FOLDER:=$(ESP_OPEN_SDK)/xtensa-lx106-elf
+ESPTOOL_PY:=$(ESP_OPEN_SDK)/esptool/esptool.py
+# end section for using esp open sdk
 
+# begin section for using sdk 0.9.5_b1 installed based on https://github.com/esp8266/esp8266-wiki/wiki/Toolchain
+#GCC_FOLDER:=/opt/Espressif/crosstool-NG/builds/xtensa-lx106-elf
+#ESPTOOL_PY:=/opt/Espressif/esptool-py/esptool.py
+#SDK:=/opt/Espressif/esp_iot_sdk_v0.9.5_b1
+# end section for manual install
 
-XTLIB:=$(SDK)/lib
-# XTGCCLIB:=$(GCC_FOLDER)/gcc-4.9.1-elf/xtensa-lx106-elf/libgcc/libgcc.a
+# derived locations
 XTGCCLIB:=$(GCC_FOLDER)/lib/gcc/xtensa-lx106-elf/4.8.2/libgcc.a
-# FOLDERPREFIX:=$(GCC_FOLDER)/root/bin
-FOLDERPREFIX:=$(GCC_FOLDER)/bin
-PREFIX:=$(FOLDERPREFIX)/xtensa-lx106-elf-
+PREFIX:=$(GCC_FOLDER)/bin/xtensa-lx106-elf-
 CC:=$(PREFIX)gcc
+XTLIB:=$(SDK)/lib
 
-CFLAGS:=-mlongcalls -I$(SDK)/include -Imyclib -Iinclude -Idriver -Iuser -Os -I$(SDK)/include/ -I /opt/Espressif/ESP8266_SDK/include
-
-#	   \
-#
+CFLAGS:=-mlongcalls -I$(SDK)/include -Imyclib -Iinclude -Idriver -Iuser -Os -I$(SDK)/include/
 
 LDFLAGS_CORE:=\
 	-nostdlib \
@@ -53,25 +58,25 @@ LINKFLAGS:= \
 	$(LDFLAGS_CORE) \
 	-B$(XTLIB)
 
-#image.elf : $(OBJS)
-#	$(PREFIX)ld $^ $(LDFLAGS) -o $@
-
 $(TARGET_OUT) : $(SRCS)
 	$(PREFIX)gcc $(CFLAGS) $^  -flto $(LINKFLAGS) -o $@
 
 
-
 $(FW_FILE_1): $(TARGET_OUT)
-	@echo "FW $@"
-	$(FW_TOOL) -eo $(TARGET_OUT) -bo $@ -bs .text -bs .data -bs .rodata -bc -ec
+	PATH=$(PATH):$(GCC_FOLDER)/bin $(ESPTOOL_PY) elf2image $(TARGET_OUT)
 
 $(FW_FILE_2): $(TARGET_OUT)
-	@echo "FW $@"
-	$(FW_TOOL) -eo $(TARGET_OUT) -es .irom0.text $@ -ec
+	PATH=$(PATH):$(GCC_FOLDER)/bin $(ESPTOOL_PY) elf2image $(TARGET_OUT)
 
 burn : $(FW_FILE_1) $(FW_FILE_2)
-	($(ESPTOOL_PY) --port $(FTDI) write_flash 0x00000 0x00000.bin 0x40000 0x40000.bin)||(true)
+	($(ESPTOOL_PY) --port $(FTDI) write_flash 0x00000 $(FW_FILE_1) 0x40000 $(FW_FILE_2))||(true)
 
+term :
+	screen $(FTDI) 115200
+
+config :
+	rm user/user_config.h
+	ln -s user_config.$(CONFIG).h user/user_config.h
 
 clean :
 	rm -rf user/*.o driver/*.o $(TARGET_OUT) $(FW_FILE_1) $(FW_FILE_2)

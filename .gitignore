@@ -1,3 +1,8 @@
-*.bin
+user/user_config.*.h
 user_config.h
+
+*~
+*.bin
 image.elf
+
+esp-open-sdk
