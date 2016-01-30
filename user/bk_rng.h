@@ -15,6 +15,7 @@
 #define BK_RNG_BUF_BYTES BK_RNG_BUF_CHUNKS*sizeof(esp_hwrng_output_t)
 
 inline esp_hwrng_output_t esp_hardware_rng() {
+    // http://esp8266-re.foogod.com/wiki/Random_Number_Generator
     return *(volatile esp_hwrng_output_t *)0x3FF20E44;
 }
 

@@ -3,7 +3,8 @@
 
 char debugging_str[255];
 
-#define DEBUGUART(...) os_sprintf((char*)(&(debugging_str[0])), __VA_ARGS__); uart0_sendStr(&(debugging_str[0]));
+// TODO use an snprintf here but os_snprintf doesn't exist.. deal with that
+#define DEBUGUART(...) os_sprintf((char*)debugging_str, __VA_ARGS__); uart0_sendStr(&(debugging_str[0]));
 
 #ifndef min
 // seriously???
