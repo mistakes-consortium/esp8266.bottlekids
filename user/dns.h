@@ -15,7 +15,7 @@ struct espconn bkdns_udp_conn;
 esp_udp bkdns_net_udp;
 
 
-void dns_response_callback(void *arg, char *pdata, unsigned short len);
+void bk_dns_response_callback(void *arg, char *pdata, unsigned short len);
 
 void BK_CACHEABLE bk_dns_init(unsigned char dnsnum) {
     if (bkdns_udp_setup) {
@@ -34,7 +34,7 @@ void BK_CACHEABLE bk_dns_init(unsigned char dnsnum) {
     bkdns_udp_conn.proto.udp = &bkdns_net_udp;
     bkdns_udp_conn.proto.udp->local_port = espconn_port();
     bkdns_udp_conn.proto.udp->remote_port = 53;
-    bkdns_udp_conn.recv_callback = dns_response_callback;
+    bkdns_udp_conn.recv_callback = bk_dns_response_callback;
     DEBUGUART("DNS Source Port: %d Target Port: %d\r\n", bkdns_udp_conn.proto.udp->local_port, bkdns_udp_conn.proto.udp->remote_port);
     os_memcpy(bkdns_udp_conn.proto.udp->remote_ip, &ip, 4);
 
@@ -178,7 +178,7 @@ void BK_CACHEABLE bk_dns_query(uint8_t numdns, char *name) {
 }
 
 
-void BK_CACHEABLE dns_response_callback(void *arg, char *pdata, unsigned short len) {
+void BK_CACHEABLE bk_dns_response_callback(void *arg, char *pdata, unsigned short len) {
     DEBUGUART("%s", "UDP response:\r\n");
     print_hexdump(pdata, len);
 }
