@@ -16,6 +16,8 @@
 #include "dns.h"
 #include "debugging.h"
 
+#include "bk_rng.h"
+
 #define user_procTaskPrio        0
 #define user_procTaskQueueLen    1
 os_event_t    user_procTaskQueue[user_procTaskQueueLen];
@@ -152,13 +154,11 @@ void ICACHE_FLASH_ATTR udp_connect_maybe() {
         return;
 
     // looking up the SRV record
-
-    /*
     char name[255];
     os_sprintf(name, "_thingsbus_input._udp.%s", TBB_ZONE);
     DEBUGUART("Query SRV %s\r\n", name);
     bk_dns_query(0, name);
-    */
+
 
     char temp[23];
     unsigned long ip = 0;
@@ -465,6 +465,31 @@ void ICACHE_FLASH_ATTR
 user_init()
 {
     uart_init(115200, 115200);
+
+    /*
+    uart0_sendStr("\r\n4096 random bytes, as hex:\r\n");
+    int i, j;
+    for (i = 0; i < 64; i++) {
+    	for (j = 0; j < 16; j++) {
+    		DEBUGUART("%08x", esp_hardware_rng());
+    	}
+    	uart0_sendStr("\r\n");
+    }
+    uart0_sendStr("\r\nend of random bytes.\r\n");
+    */
+
+    struct bk_rng_state rng_state;
+    bk_rng_init(&rng_state);
+
+    uart0_sendStr("\r\n32 random bytes, as hex:\r\n");
+    int i;
+
+    for (i = 0; i < 32; i++) {
+        DEBUGUART("%02x\r\n", bk_rng_8bit(&rng_state));
+    }
+
+    uart0_sendStr("\r\nend of random bytes.\r\n");
+
     wifi_init();
 
     uart0_sendStr("\r\n[boot] Wi-Fi initialized\r\n");
