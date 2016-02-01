@@ -1,10 +1,11 @@
 #ifndef BK_RNG_H
 #define BK_RNG_H 1
 
+#include "c_types.h"
+#include "osapi.h"
+
 #include "bkmacros.h"
 #include "debugging.h"
-
-#include "c_types.h"
 
 
 #define esp_hwrng_output_t uint32_t
@@ -129,5 +130,31 @@ uint64_t bk_rng_64bit(struct bk_rng_state *rng_state) {
     //DEBUGUART("bk_rng_64bit: returning.\r\n");
     return ret;
 };
+
+void bk_rng_uuid4(struct bk_rng_state *rng_state, char *cstr_buffer) {
+    /*
+    cstr_buffer must be a valid memory pointer to a buffer with at least 37 bytes of space in it for writing the
+    stringified uuid
+    */
+
+    uint32_t u1, u5;
+    uint16_t u2, u3, u4, u6;
+
+    u1 = bk_rng_32bit(rng_state);
+    u5 = bk_rng_32bit(rng_state);
+
+    u2 = bk_rng_16bit(rng_state);
+    u3 = bk_rng_16bit(rng_state);
+    u4 = bk_rng_16bit(rng_state);
+    u6 = bk_rng_16bit(rng_state);
+
+    u3 &= 0x0fff;
+    u3 |= 0x4000;
+
+    u4 &= 0b1011111111111111;
+    u4 |= 0b1000000000000000;
+
+    os_sprintf(cstr_buffer, "%08x-%04x-%04x-%04x-%08x%04x", u1, u2, u3, u4, u5, u6);
+}
 
 #endif
